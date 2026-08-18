@@ -5,6 +5,7 @@ import {
   AppSnapshot,
   emptySnapshot,
   FocusSession,
+  INBOX_PROJECT_ID,
   Project,
   sanitizeSnapshot,
   Task,
@@ -17,6 +18,19 @@ type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes">;
 
 function uuid() {
   return crypto.randomUUID();
+}
+
+function inboxProject(timestamp: string, sortOrder: number): Project {
+  return {
+    id: INBOX_PROJECT_ID,
+    title: "Без проєкту",
+    description: "Задачі, які ще не належать до окремого проєкту.",
+    skill: "Інше",
+    status: "active",
+    sortOrder,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  };
 }
 
 function finalizeActive(snapshot: AppSnapshot, endedAt: string) {
@@ -153,25 +167,35 @@ export function useFocusStore() {
 
   const createTask = useCallback((input: TaskInput) => {
     const timestamp = new Date().toISOString();
+    const projectId = input.projectId || INBOX_PROJECT_ID;
     const task: Task = {
-      id: uuid(), title: input.title.trim(), projectId: input.projectId, targetMinutes: input.targetMinutes,
+      id: uuid(), title: input.title.trim(), projectId, targetMinutes: input.targetMinutes,
       status: "todo", sortOrder: 0,
       createdAt: timestamp, updatedAt: timestamp, completedAt: null,
     };
-    commit((current) => ({
-      ...current,
-      tasks: [...current.tasks, { ...task, sortOrder: current.tasks.filter((item) => item.projectId === input.projectId).length }],
-    }));
+    commit((current) => {
+      const hasInbox = current.projects.some((project) => project.id === INBOX_PROJECT_ID);
+      return {
+        ...current,
+        projects: projectId === INBOX_PROJECT_ID && !hasInbox ? [...current.projects, inboxProject(timestamp, current.projects.length)] : current.projects,
+        tasks: [...current.tasks, { ...task, sortOrder: current.tasks.filter((item) => item.projectId === projectId).length }],
+      };
+    });
     setNotice("Задачу додано.");
     return task.id;
   }, [commit]);
 
   const updateTask = useCallback((id: string, input: TaskInput) => {
     const updatedAt = new Date().toISOString();
-    commit((current) => ({
-      ...current,
-      tasks: current.tasks.map((task) => task.id === id ? { ...task, ...input, title: input.title.trim(), updatedAt } : task),
-    }));
+    const normalizedInput = { ...input, projectId: input.projectId || INBOX_PROJECT_ID };
+    commit((current) => {
+      const needsInbox = normalizedInput.projectId === INBOX_PROJECT_ID && !current.projects.some((project) => project.id === INBOX_PROJECT_ID);
+      return {
+        ...current,
+        projects: needsInbox ? [...current.projects, inboxProject(updatedAt, current.projects.length)] : current.projects,
+        tasks: current.tasks.map((task) => task.id === id ? { ...task, ...normalizedInput, title: input.title.trim(), updatedAt } : task),
+      };
+    });
     setNotice("Задачу оновлено.");
   }, [commit]);
 
