@@ -4,6 +4,13 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-18 — In-app update experience
+
+- Installed copies silently check GitHub Releases shortly after startup and keep a manual Check for updates action.
+- Users update from inside E-task rather than manually downloading a new installer.
+- The update flow uses a dedicated animated modal with available version, download percentage/bytes, installation state, error recovery and automatic restart.
+- The signed Windows package remains a technical updater artifact in GitHub Releases; it is downloaded and verified by Tauri without opening a browser.
+
 ## 2026-08-18 — Usable v0.2 milestone
 
 - Replace every dashboard mock value with data derived from real projects, tasks and focus sessions.

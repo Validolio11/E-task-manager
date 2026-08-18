@@ -322,7 +322,9 @@ The app must:
 
 - Distribute E-task as a per-user NSIS Windows installer.
 - Versions use SemVer and are published through GitHub Releases.
-- The app can check for, download, verify and install a newer signed release.
+- The app automatically checks GitHub Releases after startup and also supports a manual check.
+- When an update is available, show an in-app modal with release version, animated download/install progress and clear restart state.
+- The app can download, verify and install a newer signed release without sending the user to a browser or requiring a manual installer download.
 - Replacing application files during an update must not delete or reset local SQLite data.
 - The update signing private key must never be stored in source control.
 
