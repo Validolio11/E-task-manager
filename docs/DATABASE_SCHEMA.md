@@ -303,6 +303,8 @@ UI must still require confirmation before destructive deletion.
 
 ## 7. Stop and Complete transaction flow
 
+The flows below remain the target repository contract. The current frontend Tauri SQL adapter must not emulate them with separate `BEGIN`/`COMMIT` commands because each plugin call can use a different pooled connection. It instead serializes idempotent atomic statements and performs upserts before ordered cleanup until connection-bound transaction support is available.
+
 ### Stop active task
 
 Within one transaction:

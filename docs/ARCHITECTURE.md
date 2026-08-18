@@ -216,6 +216,13 @@ elapsed = persisted_completed_duration + (now - active_session.started_at)
 
 Use monotonic/UI updates for display where helpful, but persist source-of-truth timestamps and finalized durations.
 
+### 4.1.1 Desktop process and SQLite write serialization
+
+- Register Tauri's single-instance plugin before other plugins. A second launch focuses the existing main window.
+- Serialize snapshot persistence in the frontend repository adapter.
+- Do not span a transaction across separate Tauri SQL `execute()` calls: each command may check out a different pooled connection.
+- Until the plugin exposes connection-bound transactions, use atomic idempotent upserts followed by ordered stale-row cleanup, with a bounded retry for transient SQLite lock errors.
+
 ### 4.2 One active task invariant
 
 Only one task may have an active focus session.

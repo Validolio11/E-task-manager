@@ -217,6 +217,8 @@ Cloud recovery/sync may be added later as an optional feature.
 
 Closing or hiding the main window should keep E-task running in the **Windows system tray / notification area** instead of terminating the process.
 
+Only one E-task process may run at once. Launching the app again while it is in the tray must reopen/focus the existing window.
+
 While hidden:
 - active timer continues;
 - CPU/RAM use remains low;

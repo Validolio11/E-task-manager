@@ -39,6 +39,7 @@ type SessionRow = {
 };
 
 let databasePromise: Promise<Database> | null = null;
+let desktopSaveQueue: Promise<void> = Promise.resolve();
 
 function getDatabase() {
   databasePromise ??= Database.load(DATABASE_URL);
@@ -97,44 +98,102 @@ export async function loadSnapshot(): Promise<AppSnapshot> {
   return { schemaVersion: 1, projects, tasks, sessions, settings };
 }
 
-export async function saveSnapshot(snapshot: AppSnapshot) {
+export function saveSnapshot(snapshot: AppSnapshot) {
   if (!isDesktop()) {
     localStorage.setItem(BROWSER_KEY, JSON.stringify(snapshot));
-    return;
+    return Promise.resolve();
   }
 
+  desktopSaveQueue = desktopSaveQueue
+    .catch(() => undefined)
+    .then(() => writeDesktopSnapshot(snapshot));
+  return desktopSaveQueue;
+}
+
+type IdRow = { id: string };
+
+async function deleteRemoved(database: Database, table: "focus_sessions" | "tasks" | "projects", retainedIds: Set<string>) {
+  const rows = await database.select<IdRow[]>(`SELECT id FROM ${table}`);
+  for (const row of rows) {
+    if (!retainedIds.has(row.id)) {
+      await executeWithRetry(database, `DELETE FROM ${table} WHERE id = ?`, [row.id]);
+    }
+  }
+}
+
+async function executeWithRetry(database: Database, query: string, values: unknown[] = []) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return await database.execute(query, values);
+    } catch (error) {
+      const locked = /database is locked|code:\s*5/i.test(String(error));
+      if (!locked || attempt >= 4) throw error;
+      await new Promise((resolve) => window.setTimeout(resolve, 80 * 2 ** attempt));
+    }
+  }
+}
+
+async function writeDesktopSnapshot(snapshot: AppSnapshot) {
   const database = await getDatabase();
-  await database.execute("BEGIN IMMEDIATE");
-  try {
-    await database.execute("DELETE FROM focus_sessions");
-    await database.execute("DELETE FROM tasks");
-    await database.execute("DELETE FROM projects");
 
-    for (const project of snapshot.projects) {
-      await database.execute(
-        "INSERT INTO projects (id, title, description, skill, status, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [project.id, project.title, project.description, project.skill, project.status, project.sortOrder, project.createdAt, project.updatedAt],
-      );
-    }
-    for (const task of snapshot.tasks) {
-      await database.execute(
-        "INSERT INTO tasks (id, project_id, title, status, target_duration_ms, sort_order, created_at, updated_at, completed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [task.id, task.projectId, task.title, task.status, task.targetMinutes * 60_000, task.sortOrder, task.createdAt, task.updatedAt, task.completedAt],
-      );
-    }
-    for (const session of snapshot.sessions) {
-      await database.execute(
-        "INSERT INTO focus_sessions (id, task_id, started_at, ended_at, finalized_duration_ms, target_duration_ms, target_notification_sent, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [session.id, session.taskId, session.startedAt, session.endedAt, session.durationMs, session.targetMinutes * 60_000, session.targetNotified ? 1 : 0, session.startedAt, session.endedAt ?? session.startedAt],
-      );
-    }
-    await database.execute(
-      "INSERT INTO app_settings (key, value_json, updated_at) VALUES ('preferences', ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
-      [JSON.stringify(snapshot.settings), new Date().toISOString()],
+  // The Tauri SQL plugin checks a pooled connection out for each command.
+  // Manual BEGIN/COMMIT calls can therefore land on different connections
+  // and leave SQLite permanently locked. Each command below is atomic, writes
+  // are serialized, and upserts happen before stale rows are removed.
+  for (const project of snapshot.projects) {
+    await executeWithRetry(
+      database,
+      `INSERT INTO projects (id, title, description, skill, status, sort_order, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         description = excluded.description,
+         skill = excluded.skill,
+         status = excluded.status,
+         sort_order = excluded.sort_order,
+         updated_at = excluded.updated_at`,
+      [project.id, project.title, project.description, project.skill, project.status, project.sortOrder, project.createdAt, project.updatedAt],
     );
-    await database.execute("COMMIT");
-  } catch (error) {
-    await database.execute("ROLLBACK");
-    throw error;
   }
+  for (const task of snapshot.tasks) {
+    await executeWithRetry(
+      database,
+      `INSERT INTO tasks (id, project_id, title, status, target_duration_ms, sort_order, created_at, updated_at, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         project_id = excluded.project_id,
+         title = excluded.title,
+         status = excluded.status,
+         target_duration_ms = excluded.target_duration_ms,
+         sort_order = excluded.sort_order,
+         updated_at = excluded.updated_at,
+         completed_at = excluded.completed_at`,
+      [task.id, task.projectId, task.title, task.status, task.targetMinutes * 60_000, task.sortOrder, task.createdAt, task.updatedAt, task.completedAt],
+    );
+  }
+  for (const session of snapshot.sessions) {
+    await executeWithRetry(
+      database,
+      `INSERT INTO focus_sessions (id, task_id, started_at, ended_at, finalized_duration_ms, target_duration_ms, target_notification_sent, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         task_id = excluded.task_id,
+         started_at = excluded.started_at,
+         ended_at = excluded.ended_at,
+         finalized_duration_ms = excluded.finalized_duration_ms,
+         target_duration_ms = excluded.target_duration_ms,
+         target_notification_sent = excluded.target_notification_sent,
+         updated_at = excluded.updated_at`,
+      [session.id, session.taskId, session.startedAt, session.endedAt, session.durationMs, session.targetMinutes * 60_000, session.targetNotified ? 1 : 0, session.startedAt, session.endedAt ?? session.startedAt],
+    );
+  }
+  await executeWithRetry(
+    database,
+    "INSERT INTO app_settings (key, value_json, updated_at) VALUES ('preferences', ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+    [JSON.stringify(snapshot.settings), new Date().toISOString()],
+  );
+
+  await deleteRemoved(database, "focus_sessions", new Set(snapshot.sessions.map((session) => session.id)));
+  await deleteRemoved(database, "tasks", new Set(snapshot.tasks.map((task) => task.id)));
+  await deleteRemoved(database, "projects", new Set(snapshot.projects.map((project) => project.id)));
 }

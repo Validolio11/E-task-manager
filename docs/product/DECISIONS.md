@@ -4,6 +4,13 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-18 — SQLite write reliability
+
+- Do not implement a frontend transaction by sending separate `BEGIN`, write and `COMMIT` commands through the Tauri SQL plugin; separate commands may use different pooled connections and leave SQLite locked.
+- Snapshot writes are serialized, use idempotent upserts first, then remove stale sessions/tasks/projects in dependency order.
+- Transient SQLite lock errors receive a short bounded retry.
+- E-task allows only one desktop process. Starting it again focuses the existing window instead of opening a second connection-owning process.
+
 ## 2026-08-18 — In-app update experience
 
 - Installed copies silently check GitHub Releases shortly after startup and keep a manual Check for updates action.
