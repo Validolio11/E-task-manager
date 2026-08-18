@@ -26,6 +26,7 @@ import {
   focusStage,
   formatDuration,
   formatTimer,
+  INBOX_PROJECT_ID,
   Project,
   sessionDuration,
   startOfDay,
@@ -72,19 +73,7 @@ function App() {
     document.documentElement.dataset.compact = String(store.data.settings.compact);
   }, [store.data.settings]);
 
-  const openQuickAdd = () => {
-    const activeProject = store.data.projects.find((project) => project.status === "active");
-    if (activeProject) {
-      setModal({ kind: "task", projectId: activeProject.id });
-      return;
-    }
-    const inboxId = store.createProject({
-      title: "Без проєкту",
-      description: "Швидкі задачі, які ще не належать до окремого проєкту.",
-      skill: "Інше",
-    });
-    setModal({ kind: "task", projectId: inboxId });
-  };
+  const openQuickAdd = () => setModal({ kind: "task" });
 
   if (store.loading) {
     return <div className="app-window"><WindowTitlebar/><main className="loading-screen"><img src="/app-icon.svg" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main></div>;
@@ -169,7 +158,9 @@ function HomePage({ store, setView, openModal }: { store: Store; setView: (view:
     .slice(0, 3);
   const stats = buildStats(data.sessions, now);
   const weekly = buildWeek(data.sessions, now);
-  const projectSummary = activeProject ?? data.projects.find((project) => project.status === "active") ?? null;
+  const projectSummary = activeProject && activeProject.id !== INBOX_PROJECT_ID
+    ? activeProject
+    : data.projects.find((project) => project.status === "active" && project.id !== INBOX_PROJECT_ID) ?? null;
   const skillSummary = buildSkills(data, store.trackedMsByTask).slice(0, 3);
 
   return (
@@ -218,7 +209,7 @@ function HomePage({ store, setView, openModal }: { store: Store; setView: (view:
               : <button className="wide-primary" onClick={() => store.startTask(task.id)}>Продовжити {task.targetMinutes} хв <CirclePlay size={16}/></button>}
           </>;
         })() : (
-          <div className="small-empty"><Clock3 size={28}/><strong>Немає незавершених задач</strong><span>Додай наступний маленький крок.</span><button onClick={() => openModal(data.projects.length ? { kind: "task" } : { kind: "project" })}>Додати</button></div>
+          <div className="small-empty"><Clock3 size={28}/><strong>Немає незавершених задач</strong><span>Додай наступний маленький крок — проєкт необов’язковий.</span><button onClick={() => openModal({ kind: "task" })}><Plus size={15}/> Додати задачу</button></div>
         )}
       </article>
 
@@ -231,7 +222,7 @@ function HomePage({ store, setView, openModal }: { store: Store; setView: (view:
               <span className="task-dot"/><span className="task-copy"><strong>{task.title}</strong><small>{project?.title} · {task.targetMinutes} хв</small></span><CirclePlay size={18}/>
             </button>;
           })}
-        </div> : <div className="list-empty">Черга порожня — це теж хороший стан.</div>}
+        </div> : <div className="list-empty"><span>Черга порожня — це теж хороший стан.</span><button onClick={() => openModal({ kind: "task" })}><Plus size={15}/> Додати задачу</button></div>}
         <button className="text-button" onClick={() => setView("projects")}>Переглянути всі задачі <ChevronRight size={15}/></button>
       </article>
 
@@ -263,10 +254,10 @@ function EmptyCurrent({ data, startTask, openModal }: { data: Store["data"]; sta
     <div className="eyebrow">ПОТОЧНА ЗАДАЧА</div>
     <div className="empty-current-icon"><CirclePlay size={32}/></div>
     <h1>{candidate ? "Готовий до наступного фокусу?" : "Почни з маленького кроку"}</h1>
-    <p>{candidate ? `Наступна задача: ${candidate.title}` : "Створи проєкт і першу коротку задачу. Тут немає штрафів або тиску."}</p>
+    <p>{candidate ? `Наступна задача: ${candidate.title}` : "Додай першу коротку задачу. Проєкт можна вибрати зараз або створити пізніше."}</p>
     {candidate
       ? <button className="hero-start" onClick={() => startTask(candidate.id)}>Почати {candidate.targetMinutes} хв <CirclePlay size={17}/></button>
-      : <button className="hero-start" onClick={() => openModal(data.projects.length ? { kind: "task" } : { kind: "project" })}><Plus size={17}/> {data.projects.length ? "Додати задачу" : "Створити проєкт"}</button>}
+      : <div className="empty-current-actions"><button className="hero-start" onClick={() => openModal({ kind: "task" })}><Plus size={17}/> Додати задачу</button><button className="hero-secondary" onClick={() => openModal({ kind: "project" })}><FolderPlus size={17}/> Створити проєкт</button></div>}
   </div>;
 }
 
@@ -295,7 +286,7 @@ function ProjectsPage({ store, openModal }: { store: Store; openModal: (modal: M
         })}</div>
       </aside>
       {selected && <section className="card project-detail">
-        <div className="project-detail-head"><div><span className="skill-badge">{selected.skill}</span><h2>{selected.title}</h2><p>{selected.description || "Без опису — можна додати пізніше."}</p></div><div className="inline-actions"><button title="Редагувати" onClick={() => openModal({ kind: "project", project: selected })}><Edit3 size={17}/></button><button title="Видалити" onClick={() => confirmDeleteProject(selected, store)}><Trash2 size={17}/></button></div></div>
+        <div className="project-detail-head"><div><span className="skill-badge">{selected.id === INBOX_PROJECT_ID ? "Системний список" : selected.skill}</span><h2>{selected.title}</h2><p>{selected.description || "Без опису — можна додати пізніше."}</p></div>{selected.id !== INBOX_PROJECT_ID && <div className="inline-actions"><button title="Редагувати" onClick={() => openModal({ kind: "project", project: selected })}><Edit3 size={17}/></button><button title="Видалити" onClick={() => confirmDeleteProject(selected, store)}><Trash2 size={17}/></button></div>}</div>
         <div className="project-kpis"><div><span>Прогрес</span><strong>{projectProgress(selected.id, store.data.tasks)}%</strong></div><div><span>Час</span><strong>{formatDuration(projectTime(selected.id, store.data.tasks, store.trackedMsByTask))}</strong></div><div><span>Виконано</span><strong>{tasks.filter((task) => task.status === "completed").length}/{tasks.length}</strong></div></div>
         <div className="section-heading"><div><strong>Задачі</strong><span>{tasks.length}</span></div><button onClick={() => openModal({ kind: "task", projectId: selected.id })}><Plus size={16}/> Додати задачу</button></div>
         {tasks.length ? <div className="full-task-list">{tasks.sort((a, b) => Number(a.status === "completed") - Number(b.status === "completed") || a.sortOrder - b.sortOrder).map((task) => {
@@ -401,11 +392,11 @@ function ProjectModal({ project, onClose, onSave }: { project?: Project; onClose
 
 function TaskModal({ task, initialProjectId, projects, presets, onClose, onSave }: { task?: Task; initialProjectId?: string; projects: Project[]; presets: number[]; onClose: () => void; onSave: (input: Pick<Task, "title" | "projectId" | "targetMinutes">, start: boolean) => void }) {
   const [title, setTitle] = useState(task?.title ?? "");
-  const [projectId, setProjectId] = useState(task?.projectId ?? initialProjectId ?? projects[0]?.id ?? "");
+  const [projectId, setProjectId] = useState(task?.projectId === INBOX_PROJECT_ID ? "" : task?.projectId ?? initialProjectId ?? "");
   const [targetMinutes, setTargetMinutes] = useState(task?.targetMinutes ?? presets[0] ?? 5);
   const [start, setStart] = useState(false);
-  const submit = (event: FormEvent) => { event.preventDefault(); if (title.trim() && projectId) onSave({ title, projectId, targetMinutes: Math.max(1, targetMinutes) }, start); };
-  return <Modal title={task ? "Редагувати задачу" : "Нова задача"} subtitle="Сформулюй один конкретний наступний крок." onClose={onClose}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Що саме потрібно зробити?" required/></label><label>Проєкт<select value={projectId} onChange={(event) => setProjectId(event.target.value)} required>{projects.map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label><fieldset><legend>Ціль фокусу</legend><div className="target-options">{presets.map((preset) => <button type="button" className={targetMinutes === preset ? "selected" : ""} onClick={() => setTargetMinutes(preset)} key={preset}>{preset} хв</button>)}<label><input type="number" min="1" max="240" value={targetMinutes} onChange={(event) => setTargetMinutes(Number(event.target.value))}/><span>хв</span></label></div></fieldset>{!task && <label className="check-row"><input type="checkbox" checked={start} onChange={(event) => setStart(event.target.checked)}/><span>Одразу почати фокус</span></label>}<div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{task ? "Зберегти" : start ? "Створити й почати" : "Додати задачу"}</button></div></form></Modal>;
+  const submit = (event: FormEvent) => { event.preventDefault(); if (title.trim()) onSave({ title, projectId, targetMinutes: Math.max(1, targetMinutes) }, start); };
+  return <Modal title={task ? "Редагувати задачу" : "Нова задача"} subtitle="Сформулюй один конкретний наступний крок." onClose={onClose}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Що саме потрібно зробити?" required/></label><label>Проєкт <small>необов’язково</small><select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Без проєкту</option>{projects.filter((project) => project.id !== INBOX_PROJECT_ID).map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label><fieldset><legend>Ціль фокусу</legend><div className="target-options">{presets.map((preset) => <button type="button" className={targetMinutes === preset ? "selected" : ""} onClick={() => setTargetMinutes(preset)} key={preset}>{preset} хв</button>)}<label><input type="number" min="1" max="240" value={targetMinutes} onChange={(event) => setTargetMinutes(Number(event.target.value))}/><span>хв</span></label></div></fieldset>{!task && <label className="check-row"><input type="checkbox" checked={start} onChange={(event) => setStart(event.target.checked)}/><span>Одразу почати фокус</span></label>}<div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{task ? "Зберегти" : start ? "Створити й почати" : "Додати задачу"}</button></div></form></Modal>;
 }
 
 function Modal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
@@ -500,7 +491,7 @@ function buildSkills(data: Store["data"], trackedMsByTask: Map<string, number>) 
   const projectsById = new Map(data.projects.map((project) => [project.id, project]));
   for (const task of data.tasks) {
     const project = projectsById.get(task.projectId);
-    if (!project) continue;
+    if (!project || project.id === INBOX_PROJECT_ID) continue;
     totals.set(project.skill, (totals.get(project.skill) ?? 0) + (trackedMsByTask.get(task.id) ?? 0));
   }
   return [...totals.entries()].map(([name, ms]) => ({ name, ms, hours: ms / 3_600_000 })).sort((a, b) => b.ms - a.ms);
