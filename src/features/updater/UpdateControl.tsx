@@ -18,7 +18,7 @@ export function UpdateControl() {
 
   async function checkNow() {
     if (!isDesktop()) {
-      setState({ kind: "error", message: "Update checks are available in the Windows app." });
+      setState({ kind: "error", message: "Перевірка оновлень доступна у Windows-застосунку." });
       return;
     }
 
@@ -54,12 +54,12 @@ export function UpdateControl() {
     }
   }
 
-  const label = state.kind === "idle" ? "Check updates"
-    : state.kind === "checking" ? "Checking…"
-    : state.kind === "current" ? "Up to date"
-    : state.kind === "available" ? `Update to ${state.update.version}`
-    : state.kind === "installing" ? `Installing ${state.progress}%`
-    : "Try update again";
+  const label = state.kind === "idle" ? "Перевірити оновлення"
+    : state.kind === "checking" ? "Перевіряємо…"
+    : state.kind === "current" ? "Оновлень немає"
+    : state.kind === "available" ? `Оновити до ${state.update.version}`
+    : state.kind === "installing" ? `Встановлення ${state.progress}%`
+    : "Повторити перевірку";
 
   const Icon = state.kind === "available" ? Download : state.kind === "current" ? CheckCircle2 : RefreshCw;
   return <div className="update-control">
@@ -67,7 +67,7 @@ export function UpdateControl() {
       className={`update-button ${state.kind}`}
       onClick={state.kind === "available" ? install : checkNow}
       disabled={state.kind === "checking" || state.kind === "installing"}
-      title={state.kind === "error" ? state.message : "Updates are delivered through GitHub Releases"}
+      title={state.kind === "error" ? state.message : "Оновлення надходять через GitHub Releases"}
     >
       <Icon size={16}/><span>{label}</span>
     </button>

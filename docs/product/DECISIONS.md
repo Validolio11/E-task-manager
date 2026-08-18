@@ -4,6 +4,15 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-18 — Usable v0.2 milestone
+
+- Replace every dashboard mock value with data derived from real projects, tasks and focus sessions.
+- The initial practical desktop version must support creation, editing, deletion, Start/Resume/Stop/Complete, settings, analytics and backup without requiring an online account.
+- SQLite migrations are applied by the Tauri SQL plugin; browser preview uses a localStorage adapter only for development.
+- Closing the main window hides E-task to the system tray; explicit Quit is available from the tray menu.
+- Reaching a focus target produces an in-app message, optional soft sound and native Windows notification without stopping the timer.
+- Version 0.2 uses one primary skill per project in the interface; multiple skill attribution remains a planned schema/UI expansion and does not replace the broader product requirement.
+
 ## 2026-08-18 — Product scope
 
 - E-task is a new, focused Windows productivity control center, not a clone of another app.

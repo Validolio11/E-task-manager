@@ -2,6 +2,16 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.0
+
+- Replaced static demo data with real local projects, tasks and focus sessions.
+- Added SQLite migrations and restart-safe timestamp-based timers.
+- Added complete Home, Projects, Analytics, Skills and Settings screens.
+- Added create/edit/delete and Start/Resume/Stop/Complete workflows.
+- Added light/dark/system themes, accent palettes, compact mode and custom focus presets.
+- Added JSON backup/export, native target notifications and system tray behavior.
+- Added automated domain tests for timing, period boundaries and experience levels.
+
 ## One-time repository setup
 
 1. Store the updater private key in the GitHub repository secret `TAURI_SIGNING_PRIVATE_KEY`.

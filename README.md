@@ -31,6 +31,9 @@ Run `npm run desktop:build` on Windows to create the NSIS installer. Tagged vers
 
 ## Development status
 
-Initial application scaffold is being developed on `codex/initial-app-scaffold` in draft PR #1.
+Version 0.2 is a usable local-first milestone on `main`. It includes real project/task CRUD,
+timestamp-based focus sessions, SQLite persistence and migrations, derived analytics, skill
+practice levels, themes, configurable focus presets, JSON backup/import, native target
+notifications, system-tray behavior and signed GitHub Release updates.
 
 When a new product decision is confirmed, update the decision log and product spec so future Codex sessions always receive the newest instructions.

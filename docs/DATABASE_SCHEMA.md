@@ -2,6 +2,14 @@
 
 This document defines the initial SQLite data model for E-task V1. It is designed around the confirmed product model: `Project -> Task`, one active timer at a time, raw focus-session history as the source for analytics, local-first persistence, and future reuse by MCP.
 
+## v0.2 implementation note
+
+Migration `0001_init.sql` implements the core `projects`, `tasks`, `focus_sessions` and
+`app_settings` tables. The first practical UI stores one primary skill in `projects.skill`.
+The normalized `skills`, `project_skills` and `task_skills` tables below remain the target
+for a follow-up migration when multi-skill selection is added. Existing primary-skill data
+must be migrated, not discarded.
+
 ## 1. Principles
 
 - SQLite is the primary local source of truth.

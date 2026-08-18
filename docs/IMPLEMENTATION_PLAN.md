@@ -2,6 +2,30 @@
 
 This plan turns the confirmed product and architecture into an ordered development path. Codex should work through it incrementally, keep the app runnable, and avoid jumping to later features before core timer/data integrity is stable.
 
+## Current implementation checkpoint — v0.2.0
+
+Implemented and wired to real local data:
+
+- React/Tauri application scaffold and horizontal navigation;
+- domain time/period/experience helpers with automated unit tests;
+- SQLite migration and desktop persistence, with localStorage fallback for browser preview;
+- project and task create/edit/delete flows with confirmation for destructive actions;
+- one-active-session invariant, Start/Resume/Stop/Complete and restart-safe timestamp timing;
+- real Home aggregates, weekly chart, 12-week activity heatmap and session history;
+- practice/skill level summaries;
+- theme, accent, compactness, focus presets and target sound settings;
+- JSON backup export/import;
+- native target notifications and tray Open/Quit behavior;
+- signed GitHub Releases and automatic updater.
+
+Still planned after this checkpoint:
+
+- drag-and-drop task ordering and dashboard widget ordering;
+- multiple skills per project/task instead of one primary project skill in the current UI;
+- tray Stop/Complete actions backed by a Rust/domain command layer;
+- automatic scheduled backup and user-selected backup directory;
+- broader integration/E2E coverage and future MCP exposure.
+
 ## 0. Working rules
 
 Before implementing any phase:

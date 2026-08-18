@@ -39,5 +39,5 @@ When a task introduces or confirms a product/architecture decision:
 
 - Repository: `Validolio11/E-task-manager`
 - Default branch: `main`
-- Active initial development branch: `codex/initial-app-scaffold`
+- Active development branch: `main` (feature branches may be created for isolated changes).
 - Current product working name: `E-task` until a final name is approved.
