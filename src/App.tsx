@@ -14,7 +14,6 @@ import {
   Plus,
   RotateCcw,
   Settings,
-  Sparkles,
   Trash2,
   Trophy,
   Upload,
@@ -73,7 +72,19 @@ function App() {
     document.documentElement.dataset.compact = String(store.data.settings.compact);
   }, [store.data.settings]);
 
-  const openQuickAdd = () => setModal(store.data.projects.some((project) => project.status === "active") ? { kind: "task" } : { kind: "project" });
+  const openQuickAdd = () => {
+    const activeProject = store.data.projects.find((project) => project.status === "active");
+    if (activeProject) {
+      setModal({ kind: "task", projectId: activeProject.id });
+      return;
+    }
+    const inboxId = store.createProject({
+      title: "Без проєкту",
+      description: "Швидкі задачі, які ще не належать до окремого проєкту.",
+      skill: "Інше",
+    });
+    setModal({ kind: "task", projectId: inboxId });
+  };
 
   if (store.loading) {
     return <div className="app-window"><WindowTitlebar/><main className="loading-screen"><img src="/app-icon.svg" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main></div>;
@@ -99,16 +110,17 @@ function App() {
         </nav>
 
         <div className="topbar-actions">
-          <UpdateControl />
-          <button className="quick-add" onClick={openQuickAdd}><Sparkles size={17} /> <span>Швидко додати</span></button>
+          <button className="quick-add" onClick={openQuickAdd}><Plus size={18} strokeWidth={2.6}/> <span>Додати задачу</span></button>
         </div>
       </header>
 
-      {view === "home" && <HomePage store={store} setView={setView} openModal={setModal} />}
-      {view === "projects" && <ProjectsPage store={store} openModal={setModal} />}
-      {view === "analytics" && <AnalyticsPage store={store} />}
-      {view === "skills" && <SkillsPage store={store} />}
-      {view === "settings" && <SettingsPage store={store} />}
+      <div className="app-content">
+        {view === "home" && <HomePage store={store} setView={setView} openModal={setModal} />}
+        {view === "projects" && <ProjectsPage store={store} openModal={setModal} />}
+        {view === "analytics" && <AnalyticsPage store={store} />}
+        {view === "skills" && <SkillsPage store={store} />}
+        {view === "settings" && <SettingsPage store={store} />}
+      </div>
 
       {modal?.kind === "project" && (
         <ProjectModal
@@ -372,6 +384,7 @@ function SettingsPage({ store }: { store: Store }) {
       <SettingsCard title="Вигляд панелі" description="Компактний режим зменшує відступи та висоту карток."><Segmented value={String(settings.compact)} options={[["false","Звичайний"],["true","Компактний"]]} onChange={(value) => store.updateSettings({ compact: value === "true" })}/></SettingsCard>
       <SettingsCard title="Звук цілі" description="Короткий сигнал не зупиняє таймер."><label className="switch-row"><span>{settings.soundEnabled ? "Увімкнено" : "Вимкнено"}</span><input type="checkbox" checked={settings.soundEnabled} onChange={(event) => store.updateSettings({ soundEnabled: event.target.checked })}/><i/></label></SettingsCard>
       <SettingsCard className="settings-wide" title="Швидкі цілі" description="Ціль — це орієнтир, таймер продовжить рахувати далі."><div className="preset-editor"><div>{settings.focusPresets.map((preset) => <span key={preset}>{preset} хв<button aria-label={`Видалити ${preset} хв`} onClick={() => settings.focusPresets.length > 1 && store.updateSettings({ focusPresets: settings.focusPresets.filter((item) => item !== preset) })}><X size={13}/></button></span>)}</div><label><input type="number" min="1" max="240" value={customPreset} onChange={(event) => setCustomPreset(Number(event.target.value))}/><button onClick={addPreset}><Plus size={15}/> Додати</button></label></div></SettingsCard>
+      <SettingsCard className="settings-wide settings-update-card" title="Версія та оновлення" description="E-task перевіряє підписані оновлення через GitHub і встановлює їх без ручного завантаження."><UpdateControl/></SettingsCard>
       <SettingsCard className="settings-wide" title="Резервна копія" description="Дані зберігаються локально. Експорт корисно робити після важливих змін."><div className="backup-actions"><button onClick={exportBackup}><Download size={16}/> Експортувати JSON</button><button onClick={() => fileInput.current?.click()}><Upload size={16}/> Імпортувати</button><input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => importFile(event.target.files?.[0])}/></div><div className="data-summary"><span>{store.data.projects.length} проєктів</span><span>{store.data.tasks.length} задач</span><span>{store.data.sessions.length} сесій</span></div></SettingsCard>
       <SettingsCard className="settings-wide danger-zone" title="Очистити локальні дані" description="Дія видалить усі проєкти, задачі та статистику на цьому комп’ютері."><button className="danger-button" onClick={() => { if (window.confirm("Видалити всі локальні дані E-task? Цю дію неможливо скасувати.")) store.resetAll(); }}><RotateCcw size={16}/> Очистити все</button></SettingsCard>
     </div>
@@ -397,7 +410,7 @@ function TaskModal({ task, initialProjectId, projects, presets, onClose, onSave 
 
 function Modal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => { const listener = (event: KeyboardEvent) => event.key === "Escape" && onClose(); window.addEventListener("keydown", listener); return () => window.removeEventListener("keydown", listener); }, [onClose]);
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" onClick={onClose} aria-label="Закрити"><X size={19}/></button><div className="modal-heading"><span className="modal-icon"><Sparkles size={20}/></span><div><h2 id="modal-title">{title}</h2><p>{subtitle}</p></div></div>{children}</section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" onClick={onClose} aria-label="Закрити"><X size={19}/></button><div className="modal-heading"><span className="modal-icon"><Plus size={20}/></span><div><h2 id="modal-title">{title}</h2><p>{subtitle}</p></div></div>{children}</section></div>;
 }
 
 function StatCard({ label, value, delta }: { label: string; value: string; delta: string }) {
