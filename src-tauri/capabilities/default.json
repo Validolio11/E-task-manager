@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Core E-task desktop permissions",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "sql:default",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}
