@@ -310,6 +310,15 @@ At minimum:
 - app/window sizing or compactness preference
 - optional startup behavior
 
+AI assistant:
+- provider selection between OpenAI and Gemini;
+- user-supplied API key, excluded from local database and backups;
+- model name selection;
+- clear disclosure of which local context is sent to the selected provider;
+- analysis of tasks, projects and focus history;
+- task/project proposals rendered as confirmation cards;
+- no silent or destructive AI mutations.
+
 ## 16. Performance goals
 
 The app must:
