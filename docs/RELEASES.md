@@ -2,6 +2,16 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.6
+
+- Added persistent OpenAI and Gemini API keys through Windows Credential Manager.
+- Moved AI provider, model and API-key management into Settings.
+- Kept the AI page focused on chat, local-context analysis and confirmed actions.
+- Fixed unreadable text contrast on AI action cards in the dark theme.
+- Added connection checks, friendly API errors, request cancellation and retry.
+- Added explicit data-sharing consent and an option to exclude focus-session history.
+- Added editable AI proposals, Apply all confirmation and reliable new-project task linking.
+
 ## v0.2.0
 
 - Replaced static demo data with real local projects, tasks and focus sessions.
@@ -24,6 +34,6 @@ The matching public key is embedded in `tauri.conf.json`. Existing app installat
 
 1. Run `npm run version:set -- 0.2.0` to update all three version fields safely.
 2. Commit the version change.
-3. Create and push a tag, for example `v0.1.0`.
+3. Create and push a tag, for example `v0.2.6`, or push the version commit to `main` with `[release]` in its commit message.
 
 The release workflow builds the Windows NSIS `setup.exe`, signs the updater artifact, publishes the GitHub Release, and generates `latest.json`. Installed copies read that manifest and can install the update from the app.

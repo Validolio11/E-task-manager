@@ -4,6 +4,18 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-18 — Persistent AI provider credentials
+
+- AI provider selection and model choice live in Settings; the AI page remains focused on chat and confirmation of proposed actions.
+- E-task supports both GPT through OpenAI and Gemini through Google, with one active provider at a time.
+- User-supplied API keys persist in Windows Credential Manager and are never stored in SQLite, browser/session storage, backups, logs, analytics or crash reports.
+- The renderer may read only whether a provider key exists. Stored key values are loaded and used only inside the native Tauri process and are never returned to the renderer.
+- OpenAI and Gemini keys are saved independently so switching providers does not require entering a key again.
+- Saving a key and validating a connection are separate actions; validation checks the selected model without generating a chat response.
+- The user must approve a clear data disclosure before the first request and can exclude raw focus-session history.
+- AI proposals are editable before confirmation. A summarized Apply all action is allowed, but still requires explicit confirmation and must create new projects before their dependent tasks.
+- The chat supports native request cancellation, retry after failure and automatic scrolling to new content.
+
 ## 2026-08-18 — Release approval
 
 - Implementing or testing fixes does not authorize a version bump or release.

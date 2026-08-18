@@ -312,11 +312,17 @@ At minimum:
 
 AI assistant:
 - provider selection between OpenAI and Gemini;
-- user-supplied API key, excluded from local database and backups;
+- provider, model and API-key management live in Settings while the AI page remains a focused chat experience;
+- user-supplied OpenAI and Gemini API keys persist separately in Windows Credential Manager and are excluded from SQLite, browser/session storage and backups;
+- stored secret values never return to the renderer; the interface receives only whether each provider is configured;
 - model name selection;
 - clear disclosure of which local context is sent to the selected provider;
+- explicit consent before the first AI request and an option to exclude raw focus-session history;
+- connection testing that validates the saved key and selected model without generating a chat response;
 - analysis of tasks, projects and focus history;
-- task/project proposals rendered as confirmation cards;
+- editable task/project proposals rendered as confirmation cards, with a summarized Apply all flow;
+- tasks proposed alongside a new project must remain linked to that project when the batch is applied;
+- chat supports stopping an active request, retrying a failed request and scrolling to new responses;
 - no silent or destructive AI mutations.
 
 ## 16. Performance goals

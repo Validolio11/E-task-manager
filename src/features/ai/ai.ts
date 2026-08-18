@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { AppSnapshot, sessionDuration, startOfDay, startOfWeek, totalInside } from "../../domain";
+import { AiProvider, AppSnapshot, sessionDuration, startOfDay, startOfWeek, totalInside } from "../../domain";
 
-export type AiProvider = "openai" | "gemini";
+export type { AiProvider } from "../../domain";
 export type AiActionType = "create_project" | "create_task" | "update_task" | "complete_task";
 
 export interface AiAction {
@@ -9,6 +9,7 @@ export interface AiAction {
   title: string | null;
   taskId: string | null;
   projectId: string | null;
+  projectTitle: string | null;
   description: string | null;
   skill: string | null;
   targetMinutes: number | null;
@@ -28,15 +29,31 @@ export interface AiChatMessage {
 
 const actionTypes = new Set<AiActionType>(["create_project", "create_task", "update_task", "complete_task"]);
 
+export function orderAiActionsForExecution<T extends Pick<AiAction, "type">>(actions: T[]) {
+  return [...actions].sort((a, b) => Number(b.type === "create_project") - Number(a.type === "create_project"));
+}
+
 export function parseAiReply(raw: string): AiReply {
   const value = JSON.parse(raw) as Partial<AiReply>;
   if (typeof value.message !== "string" || !Array.isArray(value.actions)) {
     throw new Error("AI повернув відповідь у невідомому форматі.");
   }
-  const actions = value.actions.filter((action): action is AiAction => {
+  const actions = value.actions.filter((action) => {
     if (!action || typeof action !== "object") return false;
     const candidate = action as Partial<AiAction>;
     return Boolean(candidate.type && actionTypes.has(candidate.type));
+  }).map((action): AiAction => {
+    const candidate = action as Partial<AiAction>;
+    return {
+      type: candidate.type as AiActionType,
+      title: typeof candidate.title === "string" ? candidate.title : null,
+      taskId: typeof candidate.taskId === "string" ? candidate.taskId : null,
+      projectId: typeof candidate.projectId === "string" ? candidate.projectId : null,
+      projectTitle: typeof candidate.projectTitle === "string" ? candidate.projectTitle : null,
+      description: typeof candidate.description === "string" ? candidate.description : null,
+      skill: typeof candidate.skill === "string" ? candidate.skill : null,
+      targetMinutes: typeof candidate.targetMinutes === "number" ? candidate.targetMinutes : null,
+    };
   });
   return { message: value.message.trim() || "Готово.", actions };
 }
@@ -55,11 +72,11 @@ export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMes
     status: task.status,
     targetMinutes: task.targetMinutes,
   }));
-  const sessions = data.sessions.map((session) => ({
+  const sessions = data.settings.aiIncludeSessionHistory ? data.sessions.map((session) => ({
     taskId: session.taskId,
     startedAt: session.startedAt,
     durationMinutes: Math.round(sessionDuration(session, now) / 60_000),
-  }));
+  })) : [];
   const today = startOfDay(new Date(now));
   const week = startOfWeek(new Date(now));
   const summary = {
@@ -75,27 +92,56 @@ export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMes
     "Можеш запропонувати create_project, create_task, update_task або complete_task.",
     "Кожна дія лише пропозиція: застосунок окремо попросить підтвердження користувача.",
     "Не пропонуй видалення. Якщо користувач просить тільки аналіз або пораду, поверни actions: [].",
-    "Для задачі без проєкту використовуй projectId: null. Для наявних сутностей використовуй точні ID з контексту.",
+    "Для задачі без проєкту використовуй projectId: null і projectTitle: null. Для наявних сутностей використовуй точні ID з контексту.",
+    "Якщо пропонуєш новий проєкт і задачі для нього в одній відповіді, у кожній такій задачі встанови projectId: null, а projectTitle — точну назву нового проєкту.",
     `Поточний час ISO: ${new Date(now).toISOString()}`,
     `Проєкти: ${JSON.stringify(projects)}`,
     `Задачі: ${JSON.stringify(tasks)}`,
-    `Фокус-сесії: ${JSON.stringify(sessions.slice(-200))}`,
+    `Фокус-сесії: ${data.settings.aiIncludeSessionHistory ? JSON.stringify(sessions.slice(-200)) : "не передаються за вибором користувача"}`,
     `Підсумок: ${JSON.stringify(summary)}`,
     `Останній діалог: ${JSON.stringify(conversation)}`,
     `Запит користувача: ${question}`,
   ].join("\n\n");
 }
 
-export async function askAi(provider: AiProvider, apiKey: string, model: string, prompt: string) {
-  if (!("__TAURI_INTERNALS__" in window)) {
+export interface AiKeyStatus {
+  openai: boolean;
+  gemini: boolean;
+}
+
+const isDesktop = () => "__TAURI_INTERNALS__" in window;
+
+export async function getAiKeyStatus(): Promise<AiKeyStatus> {
+  if (!isDesktop()) return { openai: false, gemini: false };
+  return invoke<AiKeyStatus>("ai_key_status");
+}
+
+export async function saveAiApiKey(provider: AiProvider, apiKey: string) {
+  if (!isDesktop()) throw new Error("Захищене збереження ключів доступне у встановленому Windows-застосунку.");
+  return invoke<void>("ai_save_api_key", { provider, apiKey });
+}
+
+export async function deleteAiApiKey(provider: AiProvider) {
+  if (!isDesktop()) throw new Error("Захищене збереження ключів доступне у встановленому Windows-застосунку.");
+  return invoke<void>("ai_delete_api_key", { provider });
+}
+
+export async function testAiConnection(provider: AiProvider, model: string) {
+  if (!isDesktop()) throw new Error("Перевірка API доступна у встановленому Windows-застосунку.");
+  return invoke<string>("ai_test_connection", { provider, model });
+}
+
+export async function cancelAiRequest(requestId: string) {
+  if (!isDesktop()) return;
+  return invoke<void>("ai_cancel_request", { requestId });
+}
+
+export async function askAi(provider: AiProvider, model: string, prompt: string, requestId: string) {
+  if (!isDesktop()) {
     throw new Error("AI-чат доступний у встановленому Windows-застосунку.");
   }
   const raw = await invoke<string>("ai_request", {
-    request: { provider, apiKey, model, prompt },
+    request: { requestId, provider, model, prompt },
   });
   return parseAiReply(raw);
-}
-
-export function defaultModel(provider: AiProvider) {
-  return provider === "openai" ? "gpt-5-mini" : "gemini-2.5-flash";
 }

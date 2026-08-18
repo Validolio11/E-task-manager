@@ -4,6 +4,7 @@ export type ProjectStatus = "active" | "completed" | "archived";
 export type TaskStatus = "todo" | "in_progress" | "completed";
 export type Theme = "light" | "dark" | "system";
 export type Accent = "lime" | "yellow" | "blue" | "violet";
+export type AiProvider = "openai" | "gemini";
 export const INBOX_PROJECT_ID = "system-inbox";
 
 export interface Project {
@@ -45,6 +46,11 @@ export interface AppSettings {
   compact: boolean;
   focusPresets: number[];
   soundEnabled: boolean;
+  aiProvider: AiProvider;
+  openaiModel: string;
+  geminiModel: string;
+  aiIncludeSessionHistory: boolean;
+  aiConsentAccepted: boolean;
 }
 
 export interface AppSnapshot {
@@ -61,6 +67,11 @@ export const defaultSettings: AppSettings = {
   compact: false,
   focusPresets: [5, 10, 15],
   soundEnabled: true,
+  aiProvider: "openai",
+  openaiModel: "gpt-5-mini",
+  geminiModel: "gemini-2.5-flash",
+  aiIncludeSessionHistory: true,
+  aiConsentAccepted: false,
 };
 
 export const emptySnapshot = (): AppSnapshot => ({
@@ -221,6 +232,8 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
   const sourceSettings: Record<string, unknown> = input.settings && typeof input.settings === "object" ? input.settings as unknown as Record<string, unknown> : {};
   const theme: Theme = ["system", "light", "dark"].includes(String(sourceSettings.theme ?? "")) ? sourceSettings.theme as Theme : defaultSettings.theme;
   const accent: Accent = ["lime", "yellow", "blue", "violet"].includes(String(sourceSettings.accent ?? "")) ? sourceSettings.accent as Accent : defaultSettings.accent;
+  const aiProvider: AiProvider = ["openai", "gemini"].includes(String(sourceSettings.aiProvider ?? "")) ? sourceSettings.aiProvider as AiProvider : defaultSettings.aiProvider;
+  const safeModel = (value: unknown, fallback: string) => typeof value === "string" && value.trim() && value.length <= 100 ? value.trim() : fallback;
   const focusPresets = Array.isArray(sourceSettings.focusPresets)
     ? [...new Set(sourceSettings.focusPresets.filter(positiveMinutes))].sort((a, b) => a - b)
     : defaultSettings.focusPresets;
@@ -235,6 +248,11 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
       compact: typeof sourceSettings.compact === "boolean" ? sourceSettings.compact : defaultSettings.compact,
       focusPresets: focusPresets.length ? focusPresets : defaultSettings.focusPresets,
       soundEnabled: typeof sourceSettings.soundEnabled === "boolean" ? sourceSettings.soundEnabled : defaultSettings.soundEnabled,
+      aiProvider,
+      openaiModel: safeModel(sourceSettings.openaiModel, defaultSettings.openaiModel),
+      geminiModel: safeModel(sourceSettings.geminiModel, defaultSettings.geminiModel),
+      aiIncludeSessionHistory: typeof sourceSettings.aiIncludeSessionHistory === "boolean" ? sourceSettings.aiIncludeSessionHistory : defaultSettings.aiIncludeSessionHistory,
+      aiConsentAccepted: typeof sourceSettings.aiConsentAccepted === "boolean" ? sourceSettings.aiConsentAccepted : defaultSettings.aiConsentAccepted,
     },
   };
 }

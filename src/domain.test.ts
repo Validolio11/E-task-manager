@@ -62,7 +62,7 @@ const validBackup = (): AppSnapshot => ({
   projects: [{ id: "project-1", title: "Проєкт", description: "", skill: "Інше", status: "active", sortOrder: 0, createdAt: "2026-08-18T10:00:00.000Z", updatedAt: "2026-08-18T10:00:00.000Z" }],
   tasks: [{ id: "task-1", projectId: "project-1", title: "Задача", status: "todo", targetMinutes: 5, sortOrder: 0, createdAt: "2026-08-18T10:00:00.000Z", updatedAt: "2026-08-18T10:00:00.000Z", completedAt: null }],
   sessions: [],
-  settings: { theme: "system", accent: "lime", compact: false, focusPresets: [5, 10], soundEnabled: true },
+  settings: { theme: "system", accent: "lime", compact: false, focusPresets: [5, 10], soundEnabled: true, aiProvider: "openai", openaiModel: "gpt-5-mini", geminiModel: "gemini-2.5-flash", aiIncludeSessionHistory: true, aiConsentAccepted: false },
 });
 
 describe("backup validation", () => {
@@ -88,5 +88,9 @@ describe("backup validation", () => {
     const result = sanitizeSnapshot(backup);
     expect(result.settings.theme).toBe("system");
     expect(result.settings.focusPresets).toEqual([10]);
+    expect(result.settings.aiProvider).toBe("openai");
+    expect(result.settings.openaiModel).toBe("gpt-5-mini");
+    expect(result.settings.aiIncludeSessionHistory).toBe(true);
+    expect(result.settings.aiConsentAccepted).toBe(false);
   });
 });

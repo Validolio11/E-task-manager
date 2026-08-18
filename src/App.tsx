@@ -40,6 +40,7 @@ import {
 } from "./domain";
 import { UpdateControl } from "./features/updater/UpdateControl";
 import { AiAssistant } from "./features/ai/AiAssistant";
+import { AiSettings } from "./features/ai/AiSettings";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import { useFocusStore } from "./useFocusStore";
 
@@ -111,7 +112,7 @@ function App() {
         {view === "projects" && <ProjectsPage store={store} openModal={setModal} />}
         {view === "analytics" && <AnalyticsPage store={store} />}
         {view === "skills" && <SkillsPage store={store} />}
-        {view === "ai" && <AiAssistant data={store.data} now={store.now} createProject={store.createProject} createTask={store.createTask} updateTask={store.updateTask} completeTask={store.completeTask}/>}
+        {view === "ai" && <AiAssistant data={store.data} now={store.now} createProject={store.createProject} createTask={store.createTask} updateTask={store.updateTask} completeTask={store.completeTask} updateSettings={store.updateSettings} onOpenSettings={() => setView("settings")}/>}
         {view === "settings" && <SettingsPage store={store} />}
       </div>
 
@@ -379,6 +380,7 @@ function SettingsPage({ store }: { store: Store }) {
       <SettingsCard title="Вигляд панелі" description="Компактний режим зменшує відступи та висоту карток."><Segmented value={String(settings.compact)} options={[["false","Звичайний"],["true","Компактний"]]} onChange={(value) => store.updateSettings({ compact: value === "true" })}/></SettingsCard>
       <SettingsCard title="Звук цілі" description="Короткий сигнал не зупиняє таймер."><label className="switch-row"><span>{settings.soundEnabled ? "Увімкнено" : "Вимкнено"}</span><input type="checkbox" checked={settings.soundEnabled} onChange={(event) => store.updateSettings({ soundEnabled: event.target.checked })}/><i/></label></SettingsCard>
       <SettingsCard className="settings-wide" title="Швидкі цілі" description="Ціль — це орієнтир, таймер продовжить рахувати далі."><div className="preset-editor"><div>{settings.focusPresets.map((preset) => <span key={preset}>{preset} хв<button aria-label={`Видалити ${preset} хв`} onClick={() => settings.focusPresets.length > 1 && store.updateSettings({ focusPresets: settings.focusPresets.filter((item) => item !== preset) })}><X size={13}/></button></span>)}</div><label><input type="number" min="1" max="240" value={customPreset} onChange={(event) => setCustomPreset(Number(event.target.value))}/><button onClick={addPreset}><Plus size={15}/> Додати</button></label></div></SettingsCard>
+      <AiSettings settings={settings} updateSettings={store.updateSettings}/>
       <SettingsCard className="settings-wide settings-update-card" title="Версія та оновлення" description="E-task перевіряє підписані оновлення через GitHub і встановлює їх без ручного завантаження."><UpdateControl/></SettingsCard>
       <SettingsCard className="settings-wide" title="Резервна копія" description="Дані зберігаються локально. Експорт корисно робити після важливих змін."><div className="backup-actions"><button onClick={exportBackup}><Download size={16}/> Експортувати JSON</button><button onClick={() => fileInput.current?.click()}><Upload size={16}/> Імпортувати</button><input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => importFile(event.target.files?.[0])}/></div><div className="data-summary"><span>{store.data.projects.length} проєктів</span><span>{store.data.tasks.length} задач</span><span>{store.data.sessions.length} сесій</span></div></SettingsCard>
       <SettingsCard className="settings-wide danger-zone" title="Очистити локальні дані" description="Дія видалить усі проєкти, задачі та статистику на цьому комп’ютері."><button className="danger-button" onClick={() => { if (window.confirm("Видалити всі локальні дані E-task? Цю дію неможливо скасувати.")) store.resetAll(); }}><RotateCcw size={16}/> Очистити все</button></SettingsCard>

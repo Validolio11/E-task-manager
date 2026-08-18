@@ -454,9 +454,15 @@ If the answer is unclear, ask the user before making a large structural change.
 
 - The AI assistant supports OpenAI and Gemini behind one normalized response contract.
 - Requests are proxied by a Tauri command so provider credentials are never embedded in the renderer bundle.
-- API keys are session-only in the first implementation: never write them to SQLite, logs, backups, Git, analytics or crash reports.
+- API keys persist in Windows Credential Manager under provider-specific credential entries. Never write them to SQLite, browser/session storage, logs, backups, Git, analytics or crash reports.
+- The renderer may invoke save/delete operations and request provider key-presence booleans, but the native layer never returns stored secret values.
+- Provider and model preferences are non-secret settings stored with the normal application preferences.
+- The user explicitly approves the disclosed context before the first request and may exclude raw focus-session history while retaining aggregate statistics.
+- Provider connection checks validate the stored key and selected model through model metadata endpoints and do not generate billable chat output.
+- Active requests have native cancellation identifiers; cancellation aborts the pending provider future rather than only hiding its result in the renderer.
 - The model receives a bounded snapshot of project/task identifiers and focus aggregates, plus recent chat turns.
 - Model output is validated as structured JSON. Unknown and destructive actions are discarded.
 - AI may propose create-project, create-task, update-task and complete-task operations.
 - Every mutation requires a separate user click in the UI. The model never writes directly to persistence.
+- Apply all still requires one summarized confirmation. New-project actions execute before dependent tasks, and task `projectTitle` references are resolved to the returned local project ID.
 - Domain mutation functions remain the single source of truth; the AI UI calls the same store methods as manual UI actions.
