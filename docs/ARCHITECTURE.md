@@ -449,3 +449,14 @@ Before introducing a new architectural abstraction, dependency, background servi
 4. Does it improve correctness, performance or maintainability enough to justify its complexity?
 
 If the answer is unclear, ask the user before making a large structural change.
+
+## 18. AI assistant boundary
+
+- The AI assistant supports OpenAI and Gemini behind one normalized response contract.
+- Requests are proxied by a Tauri command so provider credentials are never embedded in the renderer bundle.
+- API keys are session-only in the first implementation: never write them to SQLite, logs, backups, Git, analytics or crash reports.
+- The model receives a bounded snapshot of project/task identifiers and focus aggregates, plus recent chat turns.
+- Model output is validated as structured JSON. Unknown and destructive actions are discarded.
+- AI may propose create-project, create-task, update-task and complete-task operations.
+- Every mutation requires a separate user click in the UI. The model never writes directly to persistence.
+- Domain mutation functions remain the single source of truth; the AI UI calls the same store methods as manual UI actions.
