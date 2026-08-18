@@ -1,4 +1,4 @@
-export type ViewKey = "home" | "projects" | "analytics" | "skills" | "settings";
+export type ViewKey = "home" | "projects" | "analytics" | "skills" | "ai" | "settings";
 
 export type ProjectStatus = "active" | "completed" | "archived";
 export type TaskStatus = "todo" | "in_progress" | "completed";
