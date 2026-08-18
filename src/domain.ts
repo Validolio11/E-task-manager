@@ -4,6 +4,7 @@ export type ProjectStatus = "active" | "completed" | "archived";
 export type TaskStatus = "todo" | "in_progress" | "completed";
 export type Theme = "light" | "dark" | "system";
 export type Accent = "lime" | "yellow" | "blue" | "violet";
+export const INBOX_PROJECT_ID = "system-inbox";
 
 export interface Project {
   id: string;
