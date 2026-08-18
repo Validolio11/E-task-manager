@@ -4,6 +4,12 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-18 — Release approval
+
+- Implementing or testing fixes does not authorize a version bump or release.
+- Keep the current application version unchanged during development unless Ivan explicitly approves the next version.
+- Creating a tag, running the release workflow and publishing a GitHub Release each require Ivan's explicit approval for that release.
+
 ## 2026-08-18 — SQLite write reliability
 
 - Do not implement a frontend transaction by sending separate `BEGIN`, write and `COMMIT` commands through the Tauri SQL plugin; separate commands may use different pooled connections and leave SQLite locked.

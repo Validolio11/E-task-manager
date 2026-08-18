@@ -74,6 +74,8 @@ If a command is unavailable or the environment cannot run it, state that clearly
 
 - Keep changes focused and reviewable.
 - Do not rewrite or amend unrelated existing commits.
+- Keep fixes on the current development version until the user explicitly approves a version bump.
+- Never create a release tag, run the release workflow or publish a GitHub Release without approval for that specific release.
 - Use clear commit messages.
 - Summarize what changed, why, tests/checks run, and any unresolved decisions.
 - Never silently change the product spec to match an implementation shortcut.

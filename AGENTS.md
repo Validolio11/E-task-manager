@@ -84,6 +84,7 @@ Priorities:
 ## Coding rules
 
 - TypeScript strict mode.
+- Do not bump the application version, create a release tag, run a release workflow or publish a release without the user's explicit approval for that specific release.
 - Prefer small typed modules over large components.
 - Domain types/application services must not depend on React.
 - Keep mock/demo data clearly isolated until persistence is wired.
