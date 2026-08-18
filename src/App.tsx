@@ -1,5 +1,6 @@
 import {
   BarChart3,
+  Bot,
   BriefcaseBusiness,
   Check,
   CheckCircle2,
@@ -38,6 +39,7 @@ import {
   ViewKey,
 } from "./domain";
 import { UpdateControl } from "./features/updater/UpdateControl";
+import { AiAssistant } from "./features/ai/AiAssistant";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import { useFocusStore } from "./useFocusStore";
 
@@ -46,6 +48,7 @@ const navItems: { key: ViewKey; label: string; icon: typeof Home }[] = [
   { key: "projects", label: "Проєкти", icon: BriefcaseBusiness },
   { key: "analytics", label: "Аналітика", icon: BarChart3 },
   { key: "skills", label: "Навички", icon: Trophy },
+  { key: "ai", label: "AI-помічник", icon: Bot },
   { key: "settings", label: "Налаштування", icon: Settings },
 ];
 
@@ -108,6 +111,7 @@ function App() {
         {view === "projects" && <ProjectsPage store={store} openModal={setModal} />}
         {view === "analytics" && <AnalyticsPage store={store} />}
         {view === "skills" && <SkillsPage store={store} />}
+        {view === "ai" && <AiAssistant data={store.data} now={store.now} createProject={store.createProject} createTask={store.createTask} updateTask={store.updateTask} completeTask={store.completeTask}/>}
         {view === "settings" && <SettingsPage store={store} />}
       </div>
 
