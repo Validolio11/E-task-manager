@@ -40,6 +40,7 @@ type SessionRow = {
 
 let databasePromise: Promise<Database> | null = null;
 let desktopSaveQueue: Promise<void> = Promise.resolve();
+let persistedSnapshot: AppSnapshot | null = null;
 
 function getDatabase() {
   databasePromise ??= Database.load(DATABASE_URL);
@@ -95,7 +96,9 @@ export async function loadSnapshot(): Promise<AppSnapshot> {
 
   const settingsRow = settingsRows.find((row) => row.key === "preferences");
   const settings = settingsRow ? { ...defaultSettings, ...JSON.parse(settingsRow.value_json) } : { ...defaultSettings };
-  return { schemaVersion: 1, projects, tasks, sessions, settings };
+  const snapshot: AppSnapshot = { schemaVersion: 1, projects, tasks, sessions, settings };
+  persistedSnapshot = snapshot;
+  return snapshot;
 }
 
 export function saveSnapshot(snapshot: AppSnapshot) {
@@ -135,12 +138,17 @@ async function executeWithRetry(database: Database, query: string, values: unkno
 
 async function writeDesktopSnapshot(snapshot: AppSnapshot) {
   const database = await getDatabase();
+  const previous = persistedSnapshot;
+  const previousProjects = new Map(previous?.projects.map((project) => [project.id, project]));
+  const previousTasks = new Map(previous?.tasks.map((task) => [task.id, task]));
+  const previousSessions = new Map(previous?.sessions.map((session) => [session.id, session]));
 
   // The Tauri SQL plugin checks a pooled connection out for each command.
   // Manual BEGIN/COMMIT calls can therefore land on different connections
   // and leave SQLite permanently locked. Each command below is atomic, writes
   // are serialized, and upserts happen before stale rows are removed.
   for (const project of snapshot.projects) {
+    if (sameProject(previousProjects.get(project.id), project)) continue;
     await executeWithRetry(
       database,
       `INSERT INTO projects (id, title, description, skill, status, sort_order, created_at, updated_at)
@@ -156,6 +164,7 @@ async function writeDesktopSnapshot(snapshot: AppSnapshot) {
     );
   }
   for (const task of snapshot.tasks) {
+    if (sameTask(previousTasks.get(task.id), task)) continue;
     await executeWithRetry(
       database,
       `INSERT INTO tasks (id, project_id, title, status, target_duration_ms, sort_order, created_at, updated_at, completed_at)
@@ -172,6 +181,7 @@ async function writeDesktopSnapshot(snapshot: AppSnapshot) {
     );
   }
   for (const session of snapshot.sessions) {
+    if (sameSession(previousSessions.get(session.id), session)) continue;
     await executeWithRetry(
       database,
       `INSERT INTO focus_sessions (id, task_id, started_at, ended_at, finalized_duration_ms, target_duration_ms, target_notification_sent, created_at, updated_at)
@@ -187,13 +197,61 @@ async function writeDesktopSnapshot(snapshot: AppSnapshot) {
       [session.id, session.taskId, session.startedAt, session.endedAt, session.durationMs, session.targetMinutes * 60_000, session.targetNotified ? 1 : 0, session.startedAt, session.endedAt ?? session.startedAt],
     );
   }
-  await executeWithRetry(
-    database,
-    "INSERT INTO app_settings (key, value_json, updated_at) VALUES ('preferences', ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
-    [JSON.stringify(snapshot.settings), new Date().toISOString()],
-  );
+  if (!previous || JSON.stringify(previous.settings) !== JSON.stringify(snapshot.settings)) {
+    await executeWithRetry(
+      database,
+      "INSERT INTO app_settings (key, value_json, updated_at) VALUES ('preferences', ?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at",
+      [JSON.stringify(snapshot.settings), new Date().toISOString()],
+    );
+  }
 
-  await deleteRemoved(database, "focus_sessions", new Set(snapshot.sessions.map((session) => session.id)));
-  await deleteRemoved(database, "tasks", new Set(snapshot.tasks.map((task) => task.id)));
-  await deleteRemoved(database, "projects", new Set(snapshot.projects.map((project) => project.id)));
+  const sessionIds = new Set(snapshot.sessions.map((session) => session.id));
+  const taskIds = new Set(snapshot.tasks.map((task) => task.id));
+  const projectIds = new Set(snapshot.projects.map((project) => project.id));
+  if (previous) {
+    for (const session of previous.sessions) {
+      if (!sessionIds.has(session.id)) await executeWithRetry(database, "DELETE FROM focus_sessions WHERE id = ?", [session.id]);
+    }
+    for (const task of previous.tasks) {
+      if (!taskIds.has(task.id)) await executeWithRetry(database, "DELETE FROM tasks WHERE id = ?", [task.id]);
+    }
+    for (const project of previous.projects) {
+      if (!projectIds.has(project.id)) await executeWithRetry(database, "DELETE FROM projects WHERE id = ?", [project.id]);
+    }
+  } else {
+    await deleteRemoved(database, "focus_sessions", sessionIds);
+    await deleteRemoved(database, "tasks", taskIds);
+    await deleteRemoved(database, "projects", projectIds);
+  }
+  persistedSnapshot = snapshot;
+}
+
+function sameProject(previous: Project | undefined, next: Project) {
+  return previous?.title === next.title
+    && previous.description === next.description
+    && previous.skill === next.skill
+    && previous.status === next.status
+    && previous.sortOrder === next.sortOrder
+    && previous.createdAt === next.createdAt
+    && previous.updatedAt === next.updatedAt;
+}
+
+function sameTask(previous: Task | undefined, next: Task) {
+  return previous?.projectId === next.projectId
+    && previous.title === next.title
+    && previous.status === next.status
+    && previous.targetMinutes === next.targetMinutes
+    && previous.sortOrder === next.sortOrder
+    && previous.createdAt === next.createdAt
+    && previous.updatedAt === next.updatedAt
+    && previous.completedAt === next.completedAt;
+}
+
+function sameSession(previous: FocusSession | undefined, next: FocusSession) {
+  return previous?.taskId === next.taskId
+    && previous.startedAt === next.startedAt
+    && previous.endedAt === next.endedAt
+    && previous.durationMs === next.durationMs
+    && previous.targetMinutes === next.targetMinutes
+    && previous.targetNotified === next.targetNotified;
 }

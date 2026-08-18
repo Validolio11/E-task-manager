@@ -8,6 +8,7 @@ import {
   Project,
   sanitizeSnapshot,
   Task,
+  trackedTimeByTask,
 } from "./domain";
 import { loadSnapshot, saveSnapshot } from "./persistence";
 
@@ -16,6 +17,13 @@ type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes">;
 
 function uuid() {
   return crypto.randomUUID();
+}
+
+function finalizeActive(snapshot: AppSnapshot, endedAt: string) {
+  const active = snapshot.sessions.find((session) => !session.endedAt);
+  if (!active) return snapshot.sessions;
+  const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(active.startedAt));
+  return snapshot.sessions.map((session) => session.id === active.id ? { ...session, endedAt, durationMs } : session);
 }
 
 function playTargetSound() {
@@ -60,6 +68,7 @@ export function useFocusStore() {
   const [now, setNow] = useState(Date.now());
   const [notice, setNotice] = useState<string | null>(null);
   const loadedOnce = useRef(false);
+  const shouldPersist = useRef(false);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
@@ -71,10 +80,15 @@ export function useFocusStore() {
       .finally(() => setLoading(false));
   }, []);
 
+  const hasActiveSession = data.sessions.some((session) => !session.endedAt);
+
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    if (!hasActiveSession) return;
+    const tick = () => setNow(Date.now());
+    tick();
+    const interval = window.setInterval(tick, 1000);
     return () => window.clearInterval(interval);
-  }, []);
+  }, [hasActiveSession]);
 
   useEffect(() => {
     if (!notice) return;
@@ -82,19 +96,24 @@ export function useFocusStore() {
     return () => window.clearTimeout(timeout);
   }, [notice]);
 
+  useEffect(() => {
+    if (loading || !shouldPersist.current) return;
+    shouldPersist.current = false;
+    const snapshot = data;
+    saveQueue.current = saveQueue.current
+      .catch(() => undefined)
+      .then(() => saveSnapshot(snapshot))
+      .catch((error) => setNotice(`Помилка збереження: ${String(error)}`));
+  }, [data, loading]);
+
   const commit = useCallback((update: (current: AppSnapshot) => AppSnapshot) => {
-    setData((current) => {
-      const next = update(current);
-      saveQueue.current = saveQueue.current
-        .catch(() => undefined)
-        .then(() => saveSnapshot(next))
-        .catch((error) => setNotice(`Помилка збереження: ${String(error)}`));
-      return next;
-    });
+    shouldPersist.current = true;
+    setData(update);
   }, []);
 
   const activeSession = useMemo(() => data.sessions.find((session) => !session.endedAt) ?? null, [data.sessions]);
   const activeTask = useMemo(() => data.tasks.find((task) => task.id === activeSession?.taskId) ?? null, [activeSession, data.tasks]);
+  const trackedMsByTask = useMemo(() => trackedTimeByTask(data.sessions, now), [data.sessions, now]);
 
   useEffect(() => {
     if (!activeSession || activeSession.targetNotified) return;
@@ -111,23 +130,16 @@ export function useFocusStore() {
     if (data.settings.soundEnabled) playTargetSound();
   }, [activeSession, commit, data.settings.soundEnabled, data.tasks, now]);
 
-  const finalizeActive = (snapshot: AppSnapshot, endedAt: string) => {
-    const active = snapshot.sessions.find((session) => !session.endedAt);
-    if (!active) return snapshot.sessions;
-    const durationMs = Math.max(0, Date.parse(endedAt) - Date.parse(active.startedAt));
-    return snapshot.sessions.map((session) => session.id === active.id ? { ...session, endedAt, durationMs } : session);
-  };
-
   const createProject = useCallback((input: ProjectInput) => {
     const timestamp = new Date().toISOString();
     const project: Project = {
       id: uuid(), title: input.title.trim(), description: input.description.trim(), skill: input.skill.trim() || "Інше",
-      status: "active", sortOrder: data.projects.length, createdAt: timestamp, updatedAt: timestamp,
+      status: "active", sortOrder: 0, createdAt: timestamp, updatedAt: timestamp,
     };
-    commit((current) => ({ ...current, projects: [...current.projects, project] }));
+    commit((current) => ({ ...current, projects: [...current.projects, { ...project, sortOrder: current.projects.length }] }));
     setNotice("Проєкт створено.");
     return project.id;
-  }, [commit, data.projects.length]);
+  }, [commit]);
 
   const updateProject = useCallback((id: string, input: ProjectInput) => {
     const updatedAt = new Date().toISOString();
@@ -142,13 +154,16 @@ export function useFocusStore() {
     const timestamp = new Date().toISOString();
     const task: Task = {
       id: uuid(), title: input.title.trim(), projectId: input.projectId, targetMinutes: input.targetMinutes,
-      status: "todo", sortOrder: data.tasks.filter((item) => item.projectId === input.projectId).length,
+      status: "todo", sortOrder: 0,
       createdAt: timestamp, updatedAt: timestamp, completedAt: null,
     };
-    commit((current) => ({ ...current, tasks: [...current.tasks, task] }));
+    commit((current) => ({
+      ...current,
+      tasks: [...current.tasks, { ...task, sortOrder: current.tasks.filter((item) => item.projectId === input.projectId).length }],
+    }));
     setNotice("Задачу додано.");
     return task.id;
-  }, [commit, data.tasks]);
+  }, [commit]);
 
   const updateTask = useCallback((id: string, input: TaskInput) => {
     const updatedAt = new Date().toISOString();
@@ -230,20 +245,20 @@ export function useFocusStore() {
 
   const importBackup = useCallback((value: unknown) => {
     const snapshot = sanitizeSnapshot(value);
+    shouldPersist.current = true;
     setData(snapshot);
-    saveQueue.current = saveQueue.current.then(() => saveSnapshot(snapshot));
     setNotice("Резервну копію імпортовано.");
   }, []);
 
   const resetAll = useCallback(() => {
     const next = emptySnapshot();
+    shouldPersist.current = true;
     setData(next);
-    saveQueue.current = saveQueue.current.then(() => saveSnapshot(next));
     setNotice("Усі локальні дані очищено.");
   }, []);
 
   return {
-    data, loading, now, notice, activeSession, activeTask,
+    data, loading, now, notice, activeSession, activeTask, trackedMsByTask,
     createProject, updateProject, createTask, updateTask, startTask, stopActive,
     completeTask, reopenTask, deleteTask, deleteProject, updateSettings, importBackup, resetAll,
   };

@@ -34,7 +34,6 @@ import {
   startOfWeek,
   startOfYear,
   Task,
-  taskTrackedMs,
   totalInside,
   ViewKey,
 } from "./domain";
@@ -155,7 +154,7 @@ function HomePage({ store, setView, openModal }: { store: Store; setView: (view:
   const stats = buildStats(data.sessions, now);
   const weekly = buildWeek(data.sessions, now);
   const projectSummary = activeProject ?? data.projects.find((project) => project.status === "active") ?? null;
-  const skillSummary = buildSkills(data, now).slice(0, 3);
+  const skillSummary = buildSkills(data, store.trackedMsByTask).slice(0, 3);
 
   return (
     <section className="dashboard-grid page-enter">
@@ -192,7 +191,7 @@ function HomePage({ store, setView, openModal }: { store: Store; setView: (view:
         {(activeTask ?? resumeTask) ? (() => {
           const task = activeTask ?? resumeTask!;
           const project = projectOf(task, data.projects);
-          const tracked = taskTrackedMs(task.id, data.sessions, now);
+          const tracked = store.trackedMsByTask.get(task.id) ?? 0;
           return <>
             <h2>{task.title}</h2>
             <p className="subtle">{project?.title ?? "Без проєкту"} · {project?.skill ?? "Інше"}</p>
@@ -231,7 +230,7 @@ function HomePage({ store, setView, openModal }: { store: Store; setView: (view:
 
       <article className="card project-card">
         <div className="card-heading"><span>ПРОГРЕС ПРОЄКТУ</span>{projectSummary && <span>{projectProgress(projectSummary.id, data.tasks)}%</span>}</div>
-        {projectSummary ? <ProjectSummary project={projectSummary} data={data} now={now}/> : <div className="panel-empty"><FolderPlus size={30}/><strong>Створи перший проєкт</strong><button onClick={() => openModal({ kind: "project" })}>Створити</button></div>}
+        {projectSummary ? <ProjectSummary project={projectSummary} data={data} trackedMsByTask={store.trackedMsByTask}/> : <div className="panel-empty"><FolderPlus size={30}/><strong>Створи перший проєкт</strong><button onClick={() => openModal({ kind: "project" })}>Створити</button></div>}
       </article>
 
       <article className="card skills-card">
@@ -278,10 +277,10 @@ function ProjectsPage({ store, openModal }: { store: Store; openModal: (modal: M
       </aside>
       {selected && <section className="card project-detail">
         <div className="project-detail-head"><div><span className="skill-badge">{selected.skill}</span><h2>{selected.title}</h2><p>{selected.description || "Без опису — можна додати пізніше."}</p></div><div className="inline-actions"><button title="Редагувати" onClick={() => openModal({ kind: "project", project: selected })}><Edit3 size={17}/></button><button title="Видалити" onClick={() => confirmDeleteProject(selected, store)}><Trash2 size={17}/></button></div></div>
-        <div className="project-kpis"><div><span>Прогрес</span><strong>{projectProgress(selected.id, store.data.tasks)}%</strong></div><div><span>Час</span><strong>{formatDuration(projectTime(selected.id, store.data, store.now))}</strong></div><div><span>Виконано</span><strong>{tasks.filter((task) => task.status === "completed").length}/{tasks.length}</strong></div></div>
+        <div className="project-kpis"><div><span>Прогрес</span><strong>{projectProgress(selected.id, store.data.tasks)}%</strong></div><div><span>Час</span><strong>{formatDuration(projectTime(selected.id, store.data.tasks, store.trackedMsByTask))}</strong></div><div><span>Виконано</span><strong>{tasks.filter((task) => task.status === "completed").length}/{tasks.length}</strong></div></div>
         <div className="section-heading"><div><strong>Задачі</strong><span>{tasks.length}</span></div><button onClick={() => openModal({ kind: "task", projectId: selected.id })}><Plus size={16}/> Додати задачу</button></div>
         {tasks.length ? <div className="full-task-list">{tasks.sort((a, b) => Number(a.status === "completed") - Number(b.status === "completed") || a.sortOrder - b.sortOrder).map((task) => {
-          const tracked = taskTrackedMs(task.id, store.data.sessions, store.now);
+          const tracked = store.trackedMsByTask.get(task.id) ?? 0;
           const isActive = store.activeTask?.id === task.id;
           return <div className={`full-task-row ${task.status === "completed" ? "completed" : ""}`} key={task.id}>
             <button className={`status-check ${task.status === "completed" ? "checked" : ""}`} onClick={() => task.status === "completed" ? store.reopenTask(task.id) : store.completeTask(task.id)} aria-label={task.status === "completed" ? "Повернути задачу" : "Завершити задачу"}>{task.status === "completed" && <Check size={14}/>}</button>
@@ -320,7 +319,7 @@ function AnalyticsPage({ store }: { store: Store }) {
 }
 
 function SkillsPage({ store }: { store: Store }) {
-  const skills = buildSkills(store.data, store.now);
+  const skills = buildSkills(store.data, store.trackedMsByTask);
   return <section className="page page-enter">
     <div className="page-title"><div><span className="eyebrow-dark">НАКОПИЧЕНА ПРАКТИКА</span><h1>Навички</h1><p>Рівні показують лише вкладений час, а не оцінюють професіоналізм.</p></div></div>
     {skills.length ? <div className="skills-grid">{skills.map((skill) => {
@@ -398,10 +397,10 @@ function WeekBars({ days }: { days: { label: string; value: number }[] }) {
   return <div className="bars" aria-label="Час фокусу за тиждень">{days.map((day) => <div className="bar-col" key={day.label}><div className="bar-track" title={`${day.label}: ${formatDuration(day.value)}`}><div className="bar-fill" style={{ height: `${Math.max(day.value ? 8 : 0, (day.value / max) * 100)}%` }}/></div><small>{day.label}</small></div>)}</div>;
 }
 
-function ProjectSummary({ project, data, now }: { project: Project; data: Store["data"]; now: number }) {
+function ProjectSummary({ project, data, trackedMsByTask }: { project: Project; data: Store["data"]; trackedMsByTask: Map<string, number> }) {
   const tasks = data.tasks.filter((task) => task.projectId === project.id);
   const progress = projectProgress(project.id, data.tasks);
-  return <><h3>{project.title}</h3><div className="progress"><span style={{ width: `${progress}%` }}/></div><div className="project-meta"><span>{tasks.filter((task) => task.status === "completed").length} / {tasks.length} задач</span><span>{formatDuration(projectTime(project.id, data, now))}</span></div><div className="mini-tasks">{tasks.slice(0, 3).map((task) => <span className={task.status === "in_progress" ? "current" : ""} key={task.id}>{task.status === "completed" ? <Check size={14}/> : <Clock3 size={14}/>} {task.title}</span>)}</div></>;
+  return <><h3>{project.title}</h3><div className="progress"><span style={{ width: `${progress}%` }}/></div><div className="project-meta"><span>{tasks.filter((task) => task.status === "completed").length} / {tasks.length} задач</span><span>{formatDuration(projectTime(project.id, data.tasks, trackedMsByTask))}</span></div><div className="mini-tasks">{tasks.slice(0, 3).map((task) => <span className={task.status === "in_progress" ? "current" : ""} key={task.id}>{task.status === "completed" ? <Check size={14}/> : <Clock3 size={14}/>} {task.title}</span>)}</div></>;
 }
 
 function SkillRow({ skill }: { skill: ReturnType<typeof buildSkills>[number] }) {
@@ -422,7 +421,7 @@ function EmptyWorkspace({ onCreate, icon }: { onCreate: () => void; icon?: "skil
 }
 
 function confirmDeleteTask(task: Task, store: Store) {
-  const tracked = taskTrackedMs(task.id, store.data.sessions, store.now);
+  const tracked = store.trackedMsByTask.get(task.id) ?? 0;
   if (window.confirm(`Видалити задачу «${task.title}»? Разом із нею буде видалено ${formatDuration(tracked)} статистики.`)) store.deleteTask(task.id);
 }
 
@@ -436,9 +435,8 @@ function projectProgress(projectId: string, tasks: Task[]) {
   return projectTasks.length ? Math.round((projectTasks.filter((task) => task.status === "completed").length / projectTasks.length) * 100) : 0;
 }
 
-function projectTime(projectId: string, data: Store["data"], now: number) {
-  const ids = new Set(data.tasks.filter((task) => task.projectId === projectId).map((task) => task.id));
-  return data.sessions.filter((session) => ids.has(session.taskId)).reduce((sum, session) => sum + sessionDuration(session, now), 0);
+function projectTime(projectId: string, tasks: Task[], trackedMsByTask: Map<string, number>) {
+  return tasks.reduce((sum, task) => task.projectId === projectId ? sum + (trackedMsByTask.get(task.id) ?? 0) : sum, 0);
 }
 
 function buildStats(sessions: Store["data"]["sessions"], now: number) {
@@ -472,13 +470,13 @@ function buildHeatmap(sessions: Store["data"]["sessions"], now: number) {
   return values.map((day) => ({ ...day, level: day.value ? Math.max(1, Math.ceil((day.value / max) * 4)) : 0 }));
 }
 
-function buildSkills(data: Store["data"], now: number) {
+function buildSkills(data: Store["data"], trackedMsByTask: Map<string, number>) {
   const totals = new Map<string, number>();
-  for (const session of data.sessions) {
-    const task = data.tasks.find((item) => item.id === session.taskId);
-    const project = projectOf(task, data.projects);
+  const projectsById = new Map(data.projects.map((project) => [project.id, project]));
+  for (const task of data.tasks) {
+    const project = projectsById.get(task.projectId);
     if (!project) continue;
-    totals.set(project.skill, (totals.get(project.skill) ?? 0) + sessionDuration(session, now));
+    totals.set(project.skill, (totals.get(project.skill) ?? 0) + (trackedMsByTask.get(task.id) ?? 0));
   }
   return [...totals.entries()].map(([name, ms]) => ({ name, ms, hours: ms / 3_600_000 })).sort((a, b) => b.ms - a.ms);
 }

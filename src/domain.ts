@@ -97,6 +97,14 @@ export function taskTrackedMs(taskId: string, sessions: FocusSession[], now = Da
   return sessions.filter((session) => session.taskId === taskId).reduce((sum, session) => sum + sessionDuration(session, now), 0);
 }
 
+export function trackedTimeByTask(sessions: FocusSession[], now = Date.now()) {
+  const totals = new Map<string, number>();
+  for (const session of sessions) {
+    totals.set(session.taskId, (totals.get(session.taskId) ?? 0) + sessionDuration(session, now));
+  }
+  return totals;
+}
+
 export function formatDuration(ms: number, compact = false) {
   const totalMinutes = Math.floor(Math.max(0, ms) / 60_000);
   const hours = Math.floor(totalMinutes / 60);

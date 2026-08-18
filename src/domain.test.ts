@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { experienceForHours, focusStage, FocusSession, sessionDuration, totalInside } from "./domain";
+import { experienceForHours, focusStage, FocusSession, sessionDuration, totalInside, trackedTimeByTask } from "./domain";
 
 const session = (startedAt: string, endedAt: string | null, durationMs: number | null = null): FocusSession => ({
   id: "session-1",
@@ -35,6 +35,15 @@ describe("focus timer domain", () => {
     const from = Date.parse("2026-08-18T00:00:00.000Z");
     const to = Date.parse("2026-08-19T00:00:00.000Z");
     expect(totalInside([crossingMidnight], from, to)).toBe(600_000);
+  });
+
+  it("aggregates all task totals in one pass", () => {
+    const first = session("2026-08-18T12:00:00.000Z", "2026-08-18T12:05:00.000Z", 300_000);
+    const second = { ...session("2026-08-18T13:00:00.000Z", "2026-08-18T13:10:00.000Z", 600_000), id: "session-2" };
+    const other = { ...session("2026-08-18T14:00:00.000Z", "2026-08-18T14:02:00.000Z", 120_000), id: "session-3", taskId: "task-2" };
+    const totals = trackedTimeByTask([first, second, other]);
+    expect(totals.get("task-1")).toBe(900_000);
+    expect(totals.get("task-2")).toBe(120_000);
   });
 });
 

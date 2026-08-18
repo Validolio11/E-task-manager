@@ -220,6 +220,7 @@ Use monotonic/UI updates for display where helpful, but persist source-of-truth 
 
 - Register Tauri's single-instance plugin before other plugins. A second launch focuses the existing main window.
 - Serialize snapshot persistence in the frontend repository adapter.
+- Compare the next snapshot with the last successfully persisted snapshot and write only changed rows.
 - Do not span a transaction across separate Tauri SQL `execute()` calls: each command may check out a different pooled connection.
 - Until the plugin exposes connection-bound transactions, use atomic idempotent upserts followed by ordered stale-row cleanup, with a bounded retry for transient SQLite lock errors.
 
@@ -431,6 +432,7 @@ Critical test cases:
 ## 16. Performance rules
 
 - No unnecessary polling.
+- Run the one-second UI clock only while a focus session is active.
 - No write-every-second timer persistence.
 - Avoid heavyweight animation loops.
 - Lazy-load non-critical screens if it materially improves startup.
