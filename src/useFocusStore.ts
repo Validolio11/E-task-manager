@@ -39,6 +39,7 @@ function playTargetSound() {
     gain.gain.exponentialRampToValueAtTime(0.08, context.currentTime + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.32);
     oscillator.connect(gain).connect(context.destination);
+    oscillator.onended = () => void context.close();
     oscillator.start();
     oscillator.stop(context.currentTime + 0.34);
   } catch {

@@ -177,11 +177,63 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
   if (!Array.isArray(input.projects) || !Array.isArray(input.tasks) || !Array.isArray(input.sessions)) {
     throw new Error("У резервній копії немає потрібних даних.");
   }
+  const isDate = (date: unknown) => typeof date === "string" && Number.isFinite(Date.parse(date));
+  const isText = (text: unknown) => typeof text === "string";
+  const positiveMinutes = (minutes: unknown): minutes is number => typeof minutes === "number" && Number.isFinite(minutes) && minutes >= 1 && minutes <= 240;
+  const validProject = (project: unknown): project is Project => {
+    if (!project || typeof project !== "object") return false;
+    const item = project as Partial<Project>;
+    return isText(item.id) && Boolean(item.id) && isText(item.title) && Boolean(item.title.trim())
+      && isText(item.description) && isText(item.skill) && ["active", "completed", "archived"].includes(item.status ?? "")
+      && Number.isFinite(item.sortOrder) && isDate(item.createdAt) && isDate(item.updatedAt);
+  };
+  const validTask = (task: unknown): task is Task => {
+    if (!task || typeof task !== "object") return false;
+    const item = task as Partial<Task>;
+    return isText(item.id) && Boolean(item.id) && isText(item.projectId) && isText(item.title) && Boolean(item.title.trim())
+      && ["todo", "in_progress", "completed"].includes(item.status ?? "") && positiveMinutes(item.targetMinutes)
+      && Number.isFinite(item.sortOrder) && isDate(item.createdAt) && isDate(item.updatedAt)
+      && (item.completedAt === null || isDate(item.completedAt));
+  };
+  const validSession = (session: unknown): session is FocusSession => {
+    if (!session || typeof session !== "object") return false;
+    const item = session as Partial<FocusSession>;
+    return isText(item.id) && Boolean(item.id) && isText(item.taskId) && isDate(item.startedAt)
+      && (item.endedAt === null || isDate(item.endedAt))
+      && (item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
+      && positiveMinutes(item.targetMinutes) && typeof item.targetNotified === "boolean";
+  };
+  if (!input.projects.every(validProject) || !input.tasks.every(validTask) || !input.sessions.every(validSession)) {
+    throw new Error("Резервна копія містить некоректні проєкти, задачі або сесії.");
+  }
+  const projectIds = new Set(input.projects.map((project) => project.id));
+  const taskIds = new Set(input.tasks.map((task) => task.id));
+  if (projectIds.size !== input.projects.length || taskIds.size !== input.tasks.length || new Set(input.sessions.map((session) => session.id)).size !== input.sessions.length) {
+    throw new Error("Резервна копія містить дублікати записів.");
+  }
+  if (input.tasks.some((task) => !projectIds.has(task.projectId)) || input.sessions.some((session) => !taskIds.has(session.taskId))) {
+    throw new Error("Резервна копія містить задачі або сесії без пов’язаних даних.");
+  }
+  if (input.sessions.filter((session) => !session.endedAt).length > 1) {
+    throw new Error("Резервна копія містить кілька одночасно активних сесій.");
+  }
+  const sourceSettings: Record<string, unknown> = input.settings && typeof input.settings === "object" ? input.settings as unknown as Record<string, unknown> : {};
+  const theme: Theme = ["system", "light", "dark"].includes(String(sourceSettings.theme ?? "")) ? sourceSettings.theme as Theme : defaultSettings.theme;
+  const accent: Accent = ["lime", "yellow", "blue", "violet"].includes(String(sourceSettings.accent ?? "")) ? sourceSettings.accent as Accent : defaultSettings.accent;
+  const focusPresets = Array.isArray(sourceSettings.focusPresets)
+    ? [...new Set(sourceSettings.focusPresets.filter(positiveMinutes))].sort((a, b) => a - b)
+    : defaultSettings.focusPresets;
   return {
     schemaVersion: 1,
-    projects: input.projects as Project[],
-    tasks: input.tasks as Task[],
-    sessions: input.sessions as FocusSession[],
-    settings: { ...defaultSettings, ...(input.settings ?? {}) },
+    projects: input.projects,
+    tasks: input.tasks,
+    sessions: input.sessions,
+    settings: {
+      theme,
+      accent,
+      compact: typeof sourceSettings.compact === "boolean" ? sourceSettings.compact : defaultSettings.compact,
+      focusPresets: focusPresets.length ? focusPresets : defaultSettings.focusPresets,
+      soundEnabled: typeof sourceSettings.soundEnabled === "boolean" ? sourceSettings.soundEnabled : defaultSettings.soundEnabled,
+    },
   };
 }

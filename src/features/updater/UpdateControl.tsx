@@ -198,7 +198,7 @@ function UpdateModal({ state, busy, onClose, onInstall, onRetry }: {
         {state.kind === "error" && <><button onClick={onClose}>Закрити</button><button className="primary" onClick={onRetry}><RotateCcw size={17}/> Спробувати ще</button></>}
       </div>
 
-      {busy && <p className="update-safe-note">Не вимикай E-task під час встановлення</p>}
+      {(state.kind === "downloading" || state.kind === "installing" || state.kind === "restarting") && <p className="update-safe-note">Не вимикай E-task під час встановлення</p>}
     </section>
   </div>;
 }

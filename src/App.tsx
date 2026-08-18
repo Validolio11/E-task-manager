@@ -38,6 +38,7 @@ import {
   ViewKey,
 } from "./domain";
 import { UpdateControl } from "./features/updater/UpdateControl";
+import { WindowTitlebar } from "./components/WindowTitlebar";
 import { useFocusStore } from "./useFocusStore";
 
 const navItems: { key: ViewKey; label: string; icon: typeof Home }[] = [
@@ -72,13 +73,15 @@ function App() {
     document.documentElement.dataset.compact = String(store.data.settings.compact);
   }, [store.data.settings]);
 
-  const openQuickAdd = () => setModal(store.data.projects.length ? { kind: "task" } : { kind: "project" });
+  const openQuickAdd = () => setModal(store.data.projects.some((project) => project.status === "active") ? { kind: "task" } : { kind: "project" });
 
   if (store.loading) {
-    return <main className="loading-screen"><img src="/app-icon.svg" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main>;
+    return <div className="app-window"><WindowTitlebar/><main className="loading-screen"><img src="/app-icon.svg" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main></div>;
   }
 
   return (
+    <div className="app-window">
+    <WindowTitlebar/>
     <main className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => setView("home")} aria-label="Відкрити головну">
@@ -135,6 +138,7 @@ function App() {
       )}
       {store.notice && <div className="toast" role="status"><CheckCircle2 size={18}/><span>{store.notice}</span></div>}
     </main>
+    </div>
   );
 }
 
@@ -260,7 +264,10 @@ function ProjectsPage({ store, openModal }: { store: Store; openModal: (modal: M
   const tasks = selected ? store.data.tasks.filter((task) => task.projectId === selected.id) : [];
 
   useEffect(() => {
-    if (!selectedProjectId && store.data.projects[0]) setSelectedProjectId(store.data.projects[0].id);
+    if (store.data.projects[0] && !store.data.projects.some((project) => project.id === selectedProjectId)) {
+      setSelectedProjectId(store.data.projects[0].id);
+    }
+    if (!store.data.projects.length && selectedProjectId) setSelectedProjectId(null);
   }, [selectedProjectId, store.data.projects]);
 
   return <section className="page page-enter">
@@ -339,8 +346,10 @@ function SettingsPage({ store }: { store: Store }) {
     const anchor = document.createElement("a");
     anchor.href = url;
     anchor.download = `e-task-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(anchor);
     anchor.click();
-    URL.revokeObjectURL(url);
+    anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   };
   const addPreset = () => {
     const value = Math.min(240, Math.max(1, Math.round(customPreset)));
@@ -348,7 +357,10 @@ function SettingsPage({ store }: { store: Store }) {
   };
   const importFile = async (file?: File) => {
     if (!file) return;
-    try { store.importBackup(JSON.parse(await file.text())); }
+    try {
+      const value = JSON.parse(await file.text());
+      if (window.confirm("Імпорт замінить усі поточні локальні дані. Продовжити?")) store.importBackup(value);
+    }
     catch (error) { window.alert(error instanceof Error ? error.message : String(error)); }
     if (fileInput.current) fileInput.current.value = "";
   };
