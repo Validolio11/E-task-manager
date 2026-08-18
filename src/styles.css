@@ -99,6 +99,48 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .update-button.current { color: #65711f; background: var(--accent-soft); }
 .update-button:disabled { cursor: wait; opacity: .65; }
 .update-progress { position: absolute; left: 8px; bottom: -4px; height: 3px; border-radius: 99px; background: var(--accent-strong); transition: width .15s linear; }
+.spin { animation: update-spin 1s linear infinite; }
+
+.update-modal-backdrop { position: fixed; inset: 0; z-index: 180; display: grid; place-items: center; padding: 20px; background: rgba(8, 9, 7, .68); backdrop-filter: blur(9px); animation: fade-in .2s ease; }
+.update-modal { position: relative; width: min(480px, 100%); overflow: hidden; border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent)); border-radius: 28px; background: var(--surface); padding: 31px; text-align: center; box-shadow: 0 34px 110px rgba(0,0,0,.34); animation: update-modal-in .32s cubic-bezier(.2,.8,.2,1); }
+.update-modal::before { content: ""; position: absolute; width: 260px; height: 260px; left: 50%; top: -185px; transform: translateX(-50%); border-radius: 50%; background: var(--accent); opacity: .2; filter: blur(35px); pointer-events: none; }
+.update-modal-close { position: absolute; z-index: 2; right: 17px; top: 17px; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); color: var(--ink); cursor: pointer; }
+.update-animation { --update-progress: 0deg; position: relative; width: 126px; height: 126px; margin: 5px auto 23px; display: grid; place-items: center; }
+.update-ring { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(var(--accent-strong) var(--update-progress), var(--surface-3) 0); mask: radial-gradient(farthest-side, transparent calc(100% - 7px), #000 0); transition: background .25s ease; }
+.update-ring-secondary { inset: 12px; background: none; border: 1px dashed color-mix(in srgb, var(--accent-strong) 40%, transparent); mask: none; animation: update-spin 12s linear infinite reverse; }
+.update-animation-icon { position: relative; z-index: 2; width: 74px; height: 74px; display: grid; place-items: center; border-radius: 24px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 14px 30px color-mix(in srgb, var(--accent) 35%, transparent); }
+.update-animation > i { position: absolute; z-index: 3; width: 7px; height: 7px; border-radius: 50%; background: var(--accent-strong); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 30%, transparent); animation: update-particle 2.4s ease-in-out infinite; }
+.update-animation > i:nth-of-type(1) { left: 3px; top: 34px; }
+.update-animation > i:nth-of-type(2) { right: 2px; top: 57px; animation-delay: -.8s; }
+.update-animation > i:nth-of-type(3) { left: 36px; bottom: 1px; animation-delay: -1.6s; }
+.update-current .update-ring, .update-restarting .update-ring { background: var(--accent); }
+.update-error .update-animation-icon { background: #ffe1dd; color: #a73327; box-shadow: none; }
+.update-modal-copy { position: relative; }
+.update-version { display: inline-flex; align-items: center; min-height: 25px; padding: 0 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-ink); font-size: 10px; font-weight: 850; letter-spacing: .04em; }
+.update-modal-copy h2 { margin: 10px 0 7px; font-size: clamp(22px, 4vw, 29px); letter-spacing: -.035em; }
+.update-modal-copy p { max-width: 360px; margin: 0 auto; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.update-download-status { margin-top: 25px; padding: 15px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-2); text-align: left; }
+.update-download-meta { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 10px; font-weight: 800; }
+.update-download-track { height: 8px; overflow: hidden; border-radius: 999px; background: var(--surface-3); }
+.update-download-track span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--accent-strong), var(--accent)); transition: width .2s ease; }
+.update-download-track.indeterminate span { width: 36% !important; animation: update-indeterminate 1.25s ease-in-out infinite; }
+.update-download-status small { display: block; margin-top: 8px; color: var(--muted); font-size: 9px; }
+.update-notes, .update-error-detail { max-height: 92px; overflow: auto; margin: 18px 0 0; padding: 12px 14px; border-radius: 13px; background: var(--surface-2); color: var(--muted); font-size: 10px; line-height: 1.5; text-align: left; white-space: pre-line; }
+.update-error-detail { color: #a73327; background: #fff1ef; overflow-wrap: anywhere; }
+[data-theme="dark"] .update-error-detail { color: #ffaca2; background: rgba(167,51,39,.17); }
+.update-modal-actions { display: flex; justify-content: center; gap: 9px; margin-top: 23px; }
+.update-modal-actions button { min-height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--border); border-radius: 13px; background: var(--surface-2); color: var(--ink); padding: 0 17px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.update-modal-actions button.primary { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); }
+.update-safe-note { margin: 16px 0 0; color: var(--muted); font-size: 9px; }
+@keyframes update-spin { to { transform: rotate(360deg); } }
+@keyframes update-particle { 0%,100% { transform: scale(.7); opacity: .38; } 50% { transform: scale(1); opacity: 1; } }
+@keyframes update-modal-in { from { opacity: 0; transform: translateY(16px) scale(.96); } }
+@keyframes update-indeterminate { from { transform: translateX(-115%); } to { transform: translateX(320%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin, .update-ring-secondary, .update-animation > i, .update-download-track.indeterminate span { animation: none; }
+  .update-modal { animation: fade-in .15s ease; }
+}
 
 .dashboard-grid { max-width: 1500px; margin: 0 auto; display: grid; grid-template-columns: 1.35fr 1fr 1fr; gap: 16px; }
 .page { max-width: 1500px; margin: 0 auto; }
