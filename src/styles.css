@@ -81,17 +81,18 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .window-controls button { width: 47px; height: 38px; display: grid; place-items: center; border: 0; border-left: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer; transition: background .14s ease, color .14s ease; }
 .window-controls button:hover { background: var(--surface-3); color: var(--ink); }
 .window-controls .window-close:hover { background: #d83b3b; color: #fff; }
-.app-shell { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; padding: 25px; overscroll-behavior: contain; }
+.app-shell { flex: 1 1 auto; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; padding: 25px 25px 0; }
+.app-content { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; padding-bottom: 25px; overscroll-behavior: contain; }
 .loading-screen { flex: 1 1 auto; min-height: 0; display: grid; place-content: center; justify-items: center; gap: 8px; overflow: auto; background: var(--background); }
 .loading-screen img { width: 58px; height: 58px; border-radius: 17px; margin-bottom: 8px; box-shadow: var(--shadow); }
 .loading-screen strong { font-size: 20px; }
 .loading-screen span { color: var(--muted); font-size: 12px; }
 
 .topbar {
-  position: sticky; top: 0; z-index: 20;
+  position: relative; z-index: 20; flex: 0 0 auto;
   display: grid; grid-template-columns: minmax(170px, 240px) 1fr minmax(170px, 240px);
   align-items: center; gap: 20px; max-width: 1500px; margin: 0 auto 22px;
-  padding: 3px 0;
+  width: 100%; padding: 3px 0; background: var(--background);
 }
 .brand { display: flex; align-items: center; gap: 11px; border: 0; background: none; padding: 0; text-align: left; cursor: pointer; }
 .brand-mark { width: 42px; height: 42px; border-radius: 13px; display: block; background: #171814; box-shadow: 0 7px 16px rgba(25,26,23,.18); }
@@ -107,8 +108,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .nav-item.active span { display: inline; }
 
 .topbar-actions { justify-self: end; display: flex; align-items: center; gap: 8px; }
-.quick-add, .update-button { min-height: 42px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px; padding: 0 14px; display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 750; cursor: pointer; box-shadow: 0 6px 18px rgba(30,32,28,.025); }
-.quick-add:hover, .update-button:hover { background: var(--surface-2); }
+.quick-add, .update-button { min-height: 42px; border: 1px solid var(--border); border-radius: 999px; padding: 0 14px; display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 750; cursor: pointer; }
+.quick-add { border-color: var(--accent); background: var(--accent); color: var(--accent-ink); box-shadow: 0 9px 24px color-mix(in srgb, var(--accent) 28%, transparent); }
+.quick-add:hover { transform: translateY(-1px); filter: brightness(1.04); box-shadow: 0 12px 28px color-mix(in srgb, var(--accent) 38%, transparent); }
+.update-button { background: var(--surface); box-shadow: 0 6px 18px rgba(30,32,28,.025); }
+.update-button:hover { background: var(--surface-2); }
 .update-control { position: relative; }
 .update-button.available { background: var(--ink); color: var(--surface); border-color: var(--ink); }
 .update-button.current { color: #65711f; background: var(--accent-soft); }
@@ -249,7 +253,7 @@ h3 { margin: 20px 0 10px; }
 .page-title h1 { font-size: 34px; margin: 7px 0 6px; }
 .page-title p { color: var(--muted); font-size: 13px; margin: 0; }
 .projects-layout { display: grid; grid-template-columns: minmax(250px, .7fr) minmax(480px, 1.8fr); gap: 16px; align-items: start; }
-.project-sidebar { position: sticky; top: 91px; padding: 15px; }
+.project-sidebar { position: sticky; top: 0; padding: 15px; }
 .project-nav-list { display: grid; gap: 5px; margin-top: 12px; }
 .project-nav-row { display: grid; grid-template-columns: 39px 1fr 16px; gap: 10px; align-items: center; border: 0; border-radius: 15px; background: transparent; text-align: left; padding: 9px; cursor: pointer; }
 .project-nav-row:hover { background: var(--surface-2); }
@@ -328,6 +332,8 @@ h3 { margin: 20px 0 10px; }
 .settings-card h2 { margin: 0 0 6px; font-size: 16px; }
 .settings-card p { max-width: 470px; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.55; }
 .settings-wide { grid-column: 1 / -1; }
+.settings-update-card .update-control { display: flex; justify-content: flex-end; }
+.settings-update-card .update-button { min-width: 190px; justify-content: center; }
 .segmented { display: flex; padding: 4px; border-radius: 12px; background: var(--surface-2); }
 .segmented button { border: 0; background: transparent; border-radius: 9px; padding: 8px 10px; color: var(--muted); font-size: 10px; font-weight: 750; cursor: pointer; }
 .segmented button.active { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
@@ -385,7 +391,8 @@ h3 { margin: 20px 0 10px; }
 .toast svg { flex: 0 0 auto; color: var(--accent); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(9px); } }
 
-:root[data-compact="true"] .app-shell { padding: 16px; }
+:root[data-compact="true"] .app-shell { padding: 16px 16px 0; }
+:root[data-compact="true"] .app-content { padding-bottom: 16px; }
 :root[data-compact="true"] .dashboard-grid { gap: 11px; }
 :root[data-compact="true"] .card { padding: 16px; border-radius: 20px; }
 :root[data-compact="true"] .current-task-card { min-height: 318px; }
@@ -401,7 +408,8 @@ h3 { margin: 20px 0 10px; }
 }
 
 @media (max-width: 900px) {
-  .app-shell { padding: 16px; }
+  .app-shell { padding: 16px 16px 0; }
+  .app-content { padding-bottom: 16px; }
   .topbar { gap: 10px; }
   .brand-copy { display: none; }
   .nav-item { min-width: 43px; height: 42px; padding: 0 10px; }
@@ -418,7 +426,8 @@ h3 { margin: 20px 0 10px; }
 }
 
 @media (max-width: 700px) {
-  .app-shell { padding: 11px; }
+  .app-shell { padding: 11px 11px 0; }
+  .app-content { padding-bottom: 11px; }
   .topbar { margin-bottom: 12px; }
   .brand-mark { width: 38px; height: 38px; }
   .topbar-actions { gap: 4px; }
@@ -454,7 +463,8 @@ h3 { margin: 20px 0 10px; }
 }
 
 @media (max-height: 680px) {
-  .app-shell { padding-block: 13px; }
+  .app-shell { padding-top: 13px; }
+  .app-content { padding-bottom: 13px; }
   .topbar { margin-bottom: 12px; }
   .current-task-card { min-height: 310px; }
   .empty-current-content { min-height: 270px; }
