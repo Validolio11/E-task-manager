@@ -31,6 +31,11 @@ describe("AI response contract", () => {
   it("rejects malformed responses", () => {
     expect(() => parseAiReply('{"message": 4}')).toThrow(/невідомому форматі/);
   });
+
+  it("drops non-finite focus targets from provider payloads", () => {
+    const reply = parseAiReply('{"message":"Готово","actions":[{"type":"create_task","targetMinutes":1e999}]}');
+    expect(reply.actions[0].targetMinutes).toBeNull();
+  });
 });
 
 describe("AI action planning", () => {

@@ -1,6 +1,6 @@
 [package]
 name = "e-task"
-version = "0.2.6"
+version = "0.2.7"
 description = "Local-first focus and task tracker"
 authors = ["Ivan Melychyn"]
 license = "MIT"

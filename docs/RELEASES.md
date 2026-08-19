@@ -1,6 +1,17 @@
 # Windows releases and automatic updates
 
-E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
+
+## v0.2.7
+
+- Fixed Home and Analytics dates staying stale while the app remained open without an active timer.
+- Fixed previous-month and previous-year comparisons for calendar periods of different lengths.
+- Made daily and weekly analytics safe across local daylight-saving time changes.
+- Prevented damaged preference JSON from blocking projects, tasks and sessions from opening.
+- Reset stale retry and error state when clearing the AI chat.
+- Improved AI connection-state feedback and rejected invalid non-finite focus targets.
+- Verified responsive project, task and timer flows, including the top-bar overlap regression.
+- Updated the version script to keep `package-lock.json` synchronized automatically.
 
 ## v0.2.6
 

@@ -162,6 +162,12 @@ export function startOfYear(date = new Date()) {
   return new Date(date.getFullYear(), 0, 1).getTime();
 }
 
+export function addCalendarDays(timestamp: number, days: number) {
+  const date = new Date(timestamp);
+  date.setDate(date.getDate() + days);
+  return date.getTime();
+}
+
 export function durationInside(session: FocusSession, from: number, to: number, now = Date.now()) {
   const start = Date.parse(session.startedAt);
   const end = session.endedAt ? Date.parse(session.endedAt) : now;

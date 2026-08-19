@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AppSnapshot, experienceForHours, focusStage, FocusSession, sanitizeSnapshot, sessionDuration, totalInside, trackedTimeByTask } from "./domain";
+import { addCalendarDays, AppSnapshot, experienceForHours, focusStage, FocusSession, sanitizeSnapshot, sessionDuration, totalInside, trackedTimeByTask } from "./domain";
 
 const session = (startedAt: string, endedAt: string | null, durationMs: number | null = null): FocusSession => ({
   id: "session-1",
@@ -35,6 +35,14 @@ describe("focus timer domain", () => {
     const from = Date.parse("2026-08-18T00:00:00.000Z");
     const to = Date.parse("2026-08-19T00:00:00.000Z");
     expect(totalInside([crossingMidnight], from, to)).toBe(600_000);
+  });
+
+  it("moves between local calendar days without assuming a fixed day length", () => {
+    const start = new Date(2026, 0, 31).getTime();
+    const next = new Date(addCalendarDays(start, 1));
+    expect(next.getDate()).toBe(1);
+    expect(next.getMonth()).toBe(1);
+    expect(new Date(addCalendarDays(start, -31)).getFullYear()).toBe(2025);
   });
 
   it("aggregates all task totals in one pass", () => {

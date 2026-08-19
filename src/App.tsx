@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
+  addCalendarDays,
   AppSettings,
   experienceForHours,
   focusStage,
@@ -95,7 +96,7 @@ function App() {
 
         <nav className="nav-pill" aria-label="Головна навігація">
           {navItems.map(({ key, label, icon: Icon }) => (
-            <button className={`nav-item ${view === key ? "active" : ""}`} key={key} onClick={() => setView(key)} title={label}>
+            <button className={`nav-item ${view === key ? "active" : ""}`} key={key} onClick={() => setView(key)} title={label} aria-label={label} aria-current={view === key ? "page" : undefined}>
               <Icon size={19} strokeWidth={2} />
               <span>{label}</span>
             </button>
@@ -463,14 +464,18 @@ function projectTime(projectId: string, tasks: Task[], trackedMsByTask: Map<stri
 
 function buildStats(sessions: Store["data"]["sessions"], now: number) {
   const date = new Date(now);
-  const starts = [startOfDay(date), startOfWeek(date), startOfMonth(date), startOfYear(date), 0];
-  const ends = [starts[0] + 86_400_000, starts[1] + 7 * 86_400_000, new Date(date.getFullYear(), date.getMonth() + 1, 1).getTime(), new Date(date.getFullYear() + 1, 0, 1).getTime(), now + 1];
+  const day = startOfDay(date);
+  const week = startOfWeek(date);
+  const month = startOfMonth(date);
+  const year = startOfYear(date);
+  const starts = [day, week, month, year, 0];
+  const ends = [addCalendarDays(day, 1), addCalendarDays(week, 7), new Date(date.getFullYear(), date.getMonth() + 1, 1).getTime(), new Date(date.getFullYear() + 1, 0, 1).getTime(), now + 1];
+  const previousStarts = [addCalendarDays(day, -1), addCalendarDays(week, -7), new Date(date.getFullYear(), date.getMonth() - 1, 1).getTime(), new Date(date.getFullYear() - 1, 0, 1).getTime()];
   const labels = ["СЬОГОДНІ", "ЦЬОГО ТИЖНЯ", "ЦЬОГО МІСЯЦЯ", "ЦЬОГО РОКУ", "ЗА ВЕСЬ ЧАС"];
   return labels.map((label, index) => {
     const current = totalInside(sessions, starts[index], ends[index], now);
     if (index === 4) return { label, value: formatDuration(current, true), delta: "" };
-    const span = ends[index] - starts[index];
-    const previous = totalInside(sessions, starts[index] - span, starts[index], now);
+    const previous = totalInside(sessions, previousStarts[index], starts[index], now);
     const percent = previous ? Math.round(((current - previous) / previous) * 100) : 0;
     return { label, value: formatDuration(current, true), delta: previous ? `${percent >= 0 ? "+" : "−"}${Math.abs(percent)}% до попереднього` : "Перший період" };
   });
@@ -478,15 +483,15 @@ function buildStats(sessions: Store["data"]["sessions"], now: number) {
 
 function buildWeek(sessions: Store["data"]["sessions"], now: number) {
   const week = startOfWeek(new Date(now));
-  return dayLabels.map((label, index) => ({ label, value: totalInside(sessions, week + index * 86_400_000, week + (index + 1) * 86_400_000, now) }));
+  return dayLabels.map((label, index) => ({ label, value: totalInside(sessions, addCalendarDays(week, index), addCalendarDays(week, index + 1), now) }));
 }
 
 function buildHeatmap(sessions: Store["data"]["sessions"], now: number) {
   const today = startOfDay(new Date(now));
-  const first = today - 83 * 86_400_000;
+  const first = addCalendarDays(today, -83);
   const values = Array.from({ length: 84 }, (_, index) => {
-    const start = first + index * 86_400_000;
-    return { date: new Date(start).toLocaleDateString("uk-UA"), value: totalInside(sessions, start, start + 86_400_000, now), level: 0 };
+    const start = addCalendarDays(first, index);
+    return { date: new Date(start).toLocaleDateString("uk-UA"), value: totalInside(sessions, start, addCalendarDays(start, 1), now), level: 0 };
   });
   const max = Math.max(...values.map((day) => day.value), 1);
   return values.map((day) => ({ ...day, level: day.value ? Math.max(1, Math.ceil((day.value / max) * 4)) : 0 }));

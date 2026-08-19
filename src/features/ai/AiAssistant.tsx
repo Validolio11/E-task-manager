@@ -215,10 +215,19 @@ export function AiAssistant({ data, now, createProject, createTask, updateTask, 
     if (retryContext && !busy) await requestReply(retryContext.question, retryContext.history, messages);
   };
 
+  const clearChat = () => {
+    persistMessages([]);
+    setApplied(new Set());
+    setEditingAction(null);
+    setRetryContext(null);
+    setError(null);
+    sessionStorage.removeItem(appliedStorage);
+  };
+
   return <section className="page ai-page page-enter">
     <div className="page-title"><div><span className="eyebrow-dark">ЛОКАЛЬНИЙ КОНТЕКСТ · КОНТРОЛЬ ДІЙ</span><h1>AI-помічник</h1><p>Аналізує проєкти й фокус, допомагає планувати та пропонує зміни лише з підтвердженням.</p></div></div>
     <div className="ai-layout"><section className="card ai-chat">
-      <div className="ai-chat-head"><div><span className={`ai-status ${keyStatus && !hasKey ? "offline" : ""}`}><i/> {provider === "openai" ? "GPT · OpenAI" : "Gemini · Google"} · {model}</span><strong>Чат E-task</strong></div><div className="ai-chat-head-actions"><button className="ai-settings-link" onClick={onOpenSettings}><SettingsIcon size={14}/> Налаштування</button><button onClick={() => { persistMessages([]); setApplied(new Set()); sessionStorage.removeItem(appliedStorage); }} disabled={!messages.length}>Очистити чат</button></div></div>
+      <div className="ai-chat-head"><div><span className={`ai-status ${keyStatus === null ? "checking" : !hasKey ? "offline" : ""}`}><i/> {provider === "openai" ? "GPT · OpenAI" : "Gemini · Google"} · {model}</span><strong>Чат E-task</strong></div><div className="ai-chat-head-actions"><button className="ai-settings-link" onClick={onOpenSettings}><SettingsIcon size={14}/> Налаштування</button><button onClick={clearChat} disabled={!messages.length && !error}>Очистити чат</button></div></div>
       <div className="ai-messages">
         {keyStatus && !hasKey && <div className="ai-setup-notice"><KeyRound size={20}/><div><strong>Підключи {provider === "openai" ? "GPT" : "Gemini"}</strong><span>API-ключ налаштовується один раз і зберігається у Windows.</span></div><button onClick={onOpenSettings}>Відкрити налаштування</button></div>}
         {!data.settings.aiConsentAccepted && <div className="ai-consent"><WandSparkles size={22}/><div><strong>Перед першим запитом</strong><span>AI отримає назви й статуси проєктів та задач, підсумки часу, останні повідомлення{data.settings.aiIncludeSessionHistory ? " та історію фокус-сесій" : " без історії фокус-сесій"}. API-ключ залишається у Windows.</span></div><button onClick={() => updateSettings({ aiConsentAccepted: true })}><Check size={15}/> Погоджуюсь</button></div>}
@@ -238,7 +247,7 @@ export function AiAssistant({ data, now, createProject, createTask, updateTask, 
         <div ref={messagesEnd}/>
       </div>
       {error && <div className="ai-error"><span>{error}</span>{retryContext && !busy && error !== "Запит зупинено." && <button onClick={() => void retry()}><RefreshCw size={14}/> Повторити</button>}</div>}
-      <form className="ai-composer" onSubmit={send}><textarea rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Наприклад: проаналізуй цей тиждень і запропонуй три наступні задачі…"/>{busy ? <button className="stop" type="button" onClick={() => void stopRequest()} aria-label="Зупинити запит"><Square size={17}/></button> : <button type="submit" disabled={!input.trim() || !data.settings.aiConsentAccepted || (keyStatus !== null && !hasKey)} aria-label="Надіслати"><Send size={18}/></button>}</form>
+      <form className="ai-composer" onSubmit={send}><textarea rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Наприклад: проаналізуй цей тиждень і запропонуй три наступні задачі…"/>{busy ? <button className="stop" type="button" onClick={() => void stopRequest()} aria-label="Зупинити запит"><Square size={17}/></button> : <button type="submit" disabled={!input.trim() || !data.settings.aiConsentAccepted || keyStatus === null || !hasKey} aria-label="Надіслати"><Send size={18}/></button>}</form>
     </section></div>
   </section>;
 }

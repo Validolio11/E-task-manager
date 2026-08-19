@@ -95,7 +95,15 @@ export async function loadSnapshot(): Promise<AppSnapshot> {
   }));
 
   const settingsRow = settingsRows.find((row) => row.key === "preferences");
-  const settings = settingsRow ? { ...defaultSettings, ...JSON.parse(settingsRow.value_json) } : { ...defaultSettings };
+  let settings = { ...defaultSettings };
+  if (settingsRow) {
+    try {
+      const savedSettings = JSON.parse(settingsRow.value_json);
+      if (savedSettings && typeof savedSettings === "object") settings = { ...settings, ...savedSettings };
+    } catch {
+      // A damaged preferences row must not prevent projects, tasks and sessions from opening.
+    }
+  }
   const snapshot: AppSnapshot = { schemaVersion: 1, projects, tasks, sessions, settings };
   persistedSnapshot = snapshot;
   return snapshot;

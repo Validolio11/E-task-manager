@@ -362,6 +362,7 @@ h3 { margin: 20px 0 10px; }
 .ai-status { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
 .ai-status i { width: 7px; height: 7px; border-radius: 50%; background: #74c985; box-shadow: 0 0 0 4px rgba(116,201,133,.13); }
 .ai-status.offline i { background: #e0a44a; box-shadow: 0 0 0 4px rgba(224,164,74,.13); }
+.ai-status.checking i { background: var(--muted); box-shadow: 0 0 0 4px color-mix(in srgb, var(--muted) 14%, transparent); }
 .ai-messages { flex: 1 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding: 20px; }
 .ai-setup-notice { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--accent) 48%, var(--border)); border-radius: 14px; background: var(--accent-soft); }
 .ai-setup-notice > svg { flex: 0 0 auto; color: var(--accent-ink); }

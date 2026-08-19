@@ -52,7 +52,7 @@ export function parseAiReply(raw: string): AiReply {
       projectTitle: typeof candidate.projectTitle === "string" ? candidate.projectTitle : null,
       description: typeof candidate.description === "string" ? candidate.description : null,
       skill: typeof candidate.skill === "string" ? candidate.skill : null,
-      targetMinutes: typeof candidate.targetMinutes === "number" ? candidate.targetMinutes : null,
+      targetMinutes: typeof candidate.targetMinutes === "number" && Number.isFinite(candidate.targetMinutes) ? candidate.targetMinutes : null,
     };
   });
   return { message: value.message.trim() || "Готово.", actions };

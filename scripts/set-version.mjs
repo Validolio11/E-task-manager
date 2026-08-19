@@ -7,12 +7,18 @@ if (!version || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
 }
 
 const packagePath = new URL("../package.json", import.meta.url);
+const packageLockPath = new URL("../package-lock.json", import.meta.url);
 const tauriPath = new URL("../src-tauri/tauri.conf.json", import.meta.url);
 const cargoPath = new URL("../src-tauri/Cargo.toml", import.meta.url);
 
 const packageJson = JSON.parse(await readFile(packagePath, "utf8"));
 packageJson.version = version;
 await writeFile(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
+
+const packageLock = JSON.parse(await readFile(packageLockPath, "utf8"));
+packageLock.version = version;
+if (packageLock.packages?.[""]) packageLock.packages[""].version = version;
+await writeFile(packageLockPath, `${JSON.stringify(packageLock, null, 2)}\n`);
 
 const tauriJson = JSON.parse(await readFile(tauriPath, "utf8"));
 tauriJson.version = version;

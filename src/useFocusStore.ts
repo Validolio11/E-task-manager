@@ -98,11 +98,15 @@ export function useFocusStore() {
   const hasActiveSession = data.sessions.some((session) => !session.endedAt);
 
   useEffect(() => {
-    if (!hasActiveSession) return;
     const tick = () => setNow(Date.now());
     tick();
-    const interval = window.setInterval(tick, 1000);
-    return () => window.clearInterval(interval);
+    const interval = window.setInterval(tick, hasActiveSession ? 1000 : 60_000);
+    const syncWhenVisible = () => document.visibilityState === "visible" && tick();
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
   }, [hasActiveSession]);
 
   useEffect(() => {
