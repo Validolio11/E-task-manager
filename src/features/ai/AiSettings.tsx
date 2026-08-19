@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, LoaderCircle, ShieldCheck, Trash2, Wifi } from "lucide-react";
 import { AiProvider, AppSettings } from "../../domain";
+import { RequestConfirmation } from "../../components/ConfirmDialog";
 import { AiKeyStatus, deleteAiApiKey, getAiKeyStatus, saveAiApiKey, testAiConnection } from "./ai";
 
 interface Props {
   settings: AppSettings;
   updateSettings: (settings: Partial<AppSettings>) => void;
+  requestConfirmation: RequestConfirmation;
 }
 
 const providers: { id: AiProvider; title: string; company: string; placeholder: string; modelKey: "openaiModel" | "geminiModel"; models: { value: string; label: string }[] }[] = [
@@ -13,7 +15,7 @@ const providers: { id: AiProvider; title: string; company: string; placeholder: 
   { id: "gemini", title: "Gemini", company: "Google", placeholder: "AIza…", modelKey: "geminiModel", models: [{ value: "gemini-2.5-flash", label: "Gemini 2.5 Flash · стабільна" }, { value: "gemini-3-flash-preview", label: "Gemini 3 Flash · preview" }] },
 ];
 
-export function AiSettings({ settings, updateSettings }: Props) {
+export function AiSettings({ settings, updateSettings, requestConfirmation }: Props) {
   const [status, setStatus] = useState<AiKeyStatus>({ openai: false, gemini: false });
   const [keys, setKeys] = useState<Record<AiProvider, string>>({ openai: "", gemini: "" });
   const [busy, setBusy] = useState<AiProvider | null>(null);
@@ -69,7 +71,6 @@ export function AiSettings({ settings, updateSettings }: Props) {
   };
 
   const deleteKey = async (provider: AiProvider) => {
-    if (!window.confirm(`Видалити збережений ${provider === "openai" ? "OpenAI" : "Gemini"} API-ключ?`)) return;
     setBusy(provider);
     setError(null);
     setMessage(null);
@@ -84,6 +85,14 @@ export function AiSettings({ settings, updateSettings }: Props) {
       setBusy(null);
     }
   };
+
+  const confirmDeleteKey = (provider: AiProvider) => requestConfirmation({
+    title: `Видалити ${provider === "openai" ? "OpenAI" : "Gemini"} API-ключ?`,
+    message: "Ключ буде видалено із захищеного сховища Windows. Щоб знову користуватися цим провайдером, його потрібно буде додати повторно.",
+    confirmLabel: "Видалити ключ",
+    tone: "danger",
+    onConfirm: () => deleteKey(provider),
+  });
 
   return <article className="card settings-card settings-wide ai-provider-settings">
     <div className="ai-settings-copy">
@@ -103,7 +112,7 @@ export function AiSettings({ settings, updateSettings }: Props) {
           <div className="ai-credential-head"><div><strong>{provider.title}</strong><span>{active ? "Активний у чаті" : "Доступний для перемикання"}</span></div><small className={status[provider.id] ? "saved" : ""}>{verified[provider.id] ? "Підключення працює" : status[provider.id] ? "Ключ збережено" : "Ключ не додано"}</small></div>
           <label>Модель<select value={settings[provider.modelKey]} onChange={(event) => { updateSettings({ [provider.modelKey]: event.target.value } as Partial<AppSettings>); setVerified((current) => ({ ...current, [provider.id]: false })); }}>{provider.models.map((model) => <option value={model.value} key={model.value}>{model.label}</option>)}</select></label>
           <label>API-ключ<div className="ai-key-input"><KeyRound size={15}/><input type="password" autoComplete="off" value={keys[provider.id]} onChange={(event) => setKeys((current) => ({ ...current, [provider.id]: event.target.value }))} placeholder={status[provider.id] ? "Введи новий ключ, щоб замінити" : provider.placeholder}/></div></label>
-          <div className="ai-credential-actions"><button className="primary" onClick={() => void saveKey(provider.id)} disabled={busy !== null || !keys[provider.id].trim()}>{busy === provider.id ? <LoaderCircle className="spin" size={15}/> : <ShieldCheck size={15}/>} {status[provider.id] ? "Замінити ключ" : "Зберегти ключ"}</button>{status[provider.id] && <button onClick={() => void testConnection(provider.id)} disabled={busy !== null}><Wifi size={15}/> Перевірити</button>}{status[provider.id] && <button className="remove" onClick={() => void deleteKey(provider.id)} disabled={busy !== null}><Trash2 size={15}/> Видалити</button>}</div>
+          <div className="ai-credential-actions"><button className="primary" onClick={() => void saveKey(provider.id)} disabled={busy !== null || !keys[provider.id].trim()}>{busy === provider.id ? <LoaderCircle className="spin" size={15}/> : <ShieldCheck size={15}/>} {status[provider.id] ? "Замінити ключ" : "Зберегти ключ"}</button>{status[provider.id] && <button onClick={() => void testConnection(provider.id)} disabled={busy !== null}><Wifi size={15}/> Перевірити</button>}{status[provider.id] && <button className="remove" onClick={() => confirmDeleteKey(provider.id)} disabled={busy !== null}><Trash2 size={15}/> Видалити</button>}</div>
         </section>;
       })}
       <section className="ai-data-settings">

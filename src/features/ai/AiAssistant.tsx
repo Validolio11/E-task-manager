@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Edit3, KeyRound, LoaderCircle, Plus, RefreshCw, Send, Settings as SettingsIcon, Sparkles, Square, WandSparkles, X } from "lucide-react";
 import { AppSettings, AppSnapshot, INBOX_PROJECT_ID, Project, Task } from "../../domain";
+import { RequestConfirmation } from "../../components/ConfirmDialog";
 import { AiAction, AiChatMessage, AiKeyStatus, askAi, buildAiPrompt, cancelAiRequest, getAiKeyStatus, orderAiActionsForExecution } from "./ai";
 
 type ProjectInput = Pick<Project, "title" | "description" | "skill">;
@@ -15,6 +16,7 @@ interface Props {
   completeTask: (id: string) => void;
   updateSettings: (settings: Partial<AppSettings>) => void;
   onOpenSettings: () => void;
+  requestConfirmation: RequestConfirmation;
 }
 
 const messageStorage = "etask.ai.messages";
@@ -57,7 +59,7 @@ function actionSummary(actions: AiAction[]) {
   return groups.filter(([count]) => count > 0).map(([count, label]) => `${count} ${label}`).join(" · ");
 }
 
-export function AiAssistant({ data, now, createProject, createTask, updateTask, completeTask, updateSettings, onOpenSettings }: Props) {
+export function AiAssistant({ data, now, createProject, createTask, updateTask, completeTask, updateSettings, onOpenSettings, requestConfirmation }: Props) {
   const provider = data.settings.aiProvider;
   const model = provider === "openai" ? data.settings.openaiModel : data.settings.geminiModel;
   const [keyStatus, setKeyStatus] = useState<AiKeyStatus | null>(null);
@@ -158,22 +160,29 @@ export function AiAssistant({ data, now, createProject, createTask, updateTask, 
 
   const applyAll = (message: AiChatMessage) => {
     const pending = (message.actions ?? []).map((action, index) => ({ action, index, key: `${message.id}:${index}` })).filter((item) => !applied.has(item.key));
-    if (!pending.length || !window.confirm(`Застосувати всі запропоновані дії?\n${actionSummary(pending.map((item) => item.action))}`)) return;
-    const batchProjects = new Map<string, string>();
-    const completedKeys: string[] = [];
-    try {
-      const ordered = orderAiActionsForExecution(pending.map((item) => ({ ...item, type: item.action.type })));
-      for (const item of ordered) {
-        executeAction(item.action, batchProjects);
-        completedKeys.push(item.key);
-      }
-      markApplied(completedKeys);
-      setEditingAction(null);
-      setError(null);
-    } catch (reason) {
-      markApplied(completedKeys);
-      setError(`Частину дій застосовано. ${reason instanceof Error ? reason.message : String(reason)}`);
-    }
+    if (!pending.length) return;
+    requestConfirmation({
+      title: "Застосувати всі пропозиції AI?",
+      message: `${actionSummary(pending.map((item) => item.action))}. Перевір запропоновані зміни перед підтвердженням.`,
+      confirmLabel: "Застосувати все",
+      onConfirm: () => {
+        const batchProjects = new Map<string, string>();
+        const completedKeys: string[] = [];
+        try {
+          const ordered = orderAiActionsForExecution(pending.map((item) => ({ ...item, type: item.action.type })));
+          for (const item of ordered) {
+            executeAction(item.action, batchProjects);
+            completedKeys.push(item.key);
+          }
+          markApplied(completedKeys);
+          setEditingAction(null);
+          setError(null);
+        } catch (reason) {
+          markApplied(completedKeys);
+          setError(`Частину дій застосовано. ${reason instanceof Error ? reason.message : String(reason)}`);
+        }
+      },
+    });
   };
 
   const requestReply = async (question: string, history: AiChatMessage[], currentMessages: AiChatMessage[]) => {

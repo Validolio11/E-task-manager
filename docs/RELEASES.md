@@ -2,6 +2,15 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.8
+
+- Reworked Settings into clear Interface, AI Assistant, and Data & Updates sections.
+- Fixed the top bar overlapping page content and improved responsive project navigation at narrow window sizes.
+- Improved typography, contrast, spacing, focus states, control sizes, and dark-theme readability across the app.
+- Added accessible in-app confirmation dialogs for destructive and bulk AI actions instead of browser alerts.
+- Made Analytics easier to read with exact daily values, an explained activity heatmap, and accessible labels.
+- Improved AI chat density, key-status feedback, and API-key management readability.
+
 ## v0.2.7
 
 - Fixed Home and Analytics dates staying stale while the app remained open without an active timer.
