@@ -4,6 +4,13 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-23 — Exact logo asset and reference fidelity
+
+- The approved E-task application icon is the exact white-background variant from the user-provided logo reference: black stylized `E` with the supplied blue-to-violet checkmark.
+- The supplied logo geometry, proportions, colors, gradient and rounded white backing must not be redrawn, approximated, recolored, embellished or replaced with a similar asset.
+- Design implementation must follow explicit user instructions and supplied assets literally. When an exact source or selected variant is unavailable or ambiguous, ask instead of inventing a substitute.
+- Yellow remains an interface accent option; it is not a requirement to recolor the approved logo.
+
 ## 2026-08-18 — Persistent AI provider credentials
 
 - AI provider selection and model choice live in Settings; the AI page remains focused on chat and confirmation of proposed actions.
@@ -140,4 +147,4 @@ This is the chronological decision log for confirmed product and architecture ch
 - Application versions follow SemVer and are published as GitHub Releases.
 - Installed apps check the latest GitHub Release manifest and may download/install signed updates without losing local SQLite data.
 - Updater packages must be cryptographically signed; the private key is stored only as a GitHub repository secret and in a secure offline backup.
-- The approved application icon uses the yellow focus/lightning/check motif on a near-black rounded square.
+- The application icon is defined by the newest confirmed logo decision above.

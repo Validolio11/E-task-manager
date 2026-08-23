@@ -2,6 +2,14 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.9
+
+- Replaced the application branding with the exact approved white-background E-task logo variant and regenerated the Windows/Tauri icons.
+- Normalized the interface around shared SaaS design tokens with restrained 16px card radii, 12px grid gaps, spacious card interiors, softer shadows and calmer motion.
+- Reorganized Settings into a desktop sidebar with a responsive tablet layout.
+- Improved modal width, form spacing, typography, scrollbar treatment and primary-action hierarchy.
+- Recorded strict reference-fidelity rules so supplied brand assets are not redrawn, recolored or substituted.
+
 ## v0.2.8
 
 - Reworked Settings into clear Interface, AI Assistant, and Data & Updates sections.

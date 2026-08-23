@@ -84,7 +84,7 @@ function App() {
   const openQuickAdd = () => setModal({ kind: "task" });
 
   if (store.loading) {
-    return <div className="app-window"><WindowTitlebar/><main className="loading-screen"><img src="/app-icon.svg" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main></div>;
+    return <div className="app-window"><WindowTitlebar/><main className="loading-screen"><img src="/app-icon.png" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main></div>;
   }
 
   return (
@@ -93,7 +93,7 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <button className="brand" onClick={() => setView("home")} aria-label="Відкрити головну">
-          <img className="brand-mark" src="/app-icon.svg" alt="" />
+          <img className="brand-mark" src="/app-icon.png" alt="" />
           <span className="brand-copy"><strong>E-task</strong><small>Фокус. Час. Прогрес.</small></span>
         </button>
 
@@ -387,10 +387,11 @@ function SettingsPage({ store, requestConfirmation }: { store: Store; requestCon
   };
   return <section className="page settings-page page-enter">
     <div className="page-title"><div><span className="eyebrow-dark">ПЕРСОНАЛІЗАЦІЯ</span><h1>Налаштування</h1><p>Вигляд, короткі цілі та локальні дані.</p></div></div>
-    <nav className="settings-tabs" aria-label="Розділи налаштувань">
-      {([["appearance", "Інтерфейс"], ["ai", "AI-помічник"], ["data", "Дані та оновлення"]] as const).map(([key, label]) => <button key={key} className={section === key ? "active" : ""} onClick={() => setSection(key)} aria-current={section === key ? "page" : undefined}>{label}</button>)}
-    </nav>
-    <div className="settings-grid" key={section}>
+    <div className="settings-layout">
+      <nav className="settings-tabs" aria-label="Розділи налаштувань">
+        {([["appearance", "Інтерфейс"], ["ai", "AI-помічник"], ["data", "Дані та оновлення"]] as const).map(([key, label]) => <button key={key} className={section === key ? "active" : ""} onClick={() => setSection(key)} aria-current={section === key ? "page" : undefined}>{label}</button>)}
+      </nav>
+      <div className="settings-grid" key={section}>
       {section === "appearance" && <>
         <SettingsCard title="Тема" description="Системна тема автоматично повторює Windows."><Segmented value={settings.theme} options={[["system","Системна"],["light","Світла"],["dark","Темна"]]} onChange={(value) => store.updateSettings({ theme: value as AppSettings["theme"] })}/></SettingsCard>
         <SettingsCard title="Акцент" description="Колір використовується лише для ключових дій."><div className="accent-picker">{(["lime","yellow","blue","violet"] as const).map((accent) => <button key={accent} className={settings.accent === accent ? "selected" : ""} data-accent-value={accent} onClick={() => store.updateSettings({ accent })} aria-label={`Акцент ${accent}`}/>)}</div></SettingsCard>
@@ -404,6 +405,7 @@ function SettingsPage({ store, requestConfirmation }: { store: Store; requestCon
         <SettingsCard className="settings-wide" title="Резервна копія" description="Дані зберігаються локально. Експорт корисно робити після важливих змін."><div className="backup-actions"><button onClick={exportBackup}><Download size={16}/> Експортувати JSON</button><button onClick={() => fileInput.current?.click()}><Upload size={16}/> Імпортувати</button><input ref={fileInput} type="file" accept="application/json" hidden onChange={(event) => void importFile(event.target.files?.[0])}/></div><div className="data-summary"><span>{store.data.projects.length} проєктів</span><span>{store.data.tasks.length} задач</span><span>{store.data.sessions.length} сесій</span></div>{backupError && <div className="settings-inline-error" role="alert">{backupError}</div>}</SettingsCard>
         <SettingsCard className="settings-wide danger-zone" title="Очистити локальні дані" description="Дія видалить усі проєкти, задачі та статистику на цьому комп’ютері."><button className="danger-button" onClick={() => requestConfirmation({ title: "Очистити всі локальні дані?", message: "Усі проєкти, задачі, фокус-сесії та статистику буде видалено без можливості відновлення.", confirmLabel: "Очистити все", tone: "danger", onConfirm: store.resetAll })}><RotateCcw size={16}/> Очистити все</button></SettingsCard>
       </>}
+      </div>
     </div>
   </section>;
 }

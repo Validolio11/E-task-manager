@@ -291,6 +291,10 @@ Dark:
 
 Use curated accent presets instead of unrestricted color picking for the primary direction. **Yellow** is the current preferred/default accent family.
 
+### Brand asset
+
+The approved application icon is the exact white-background variant from the user-provided logo reference: a black stylized `E` with the supplied blue-to-violet checkmark. Preserve the source geometry, proportions, colors, gradient and rounded backing exactly. Do not redraw, approximate, recolor or embellish it. The interface accent palette is independent from the fixed logo colors.
+
 Languages:
 - Ukrainian
 - English

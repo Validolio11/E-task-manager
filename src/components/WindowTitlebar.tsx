@@ -27,7 +27,7 @@ export function WindowTitlebar() {
   return (
     <header className="window-titlebar" data-tauri-drag-region>
       <div className="window-titlebar-brand" data-tauri-drag-region>
-        <img src="/app-icon.svg" alt="" draggable={false} />
+        <img src="/app-icon.png" alt="" draggable={false} />
         <strong data-tauri-drag-region>E-task</strong>
         <span data-tauri-drag-region>Фокус без зайвого шуму</span>
       </div>
