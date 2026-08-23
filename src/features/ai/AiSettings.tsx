@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, LoaderCircle, ShieldCheck, Trash2, Wifi } from "lucide-react";
-import { AiProvider, AppSettings } from "../../domain";
+import { AI_CONTEXT_CONSENT_VERSION, AiProvider, AppSettings } from "../../domain";
 import { RequestConfirmation } from "../../components/ConfirmDialog";
 import { AiKeyStatus, deleteAiApiKey, getAiKeyStatus, saveAiApiKey, testAiConnection } from "./ai";
 
@@ -16,6 +16,7 @@ const providers: { id: AiProvider; title: string; company: string; placeholder: 
 ];
 
 export function AiSettings({ settings, updateSettings, requestConfirmation }: Props) {
+  const hasCurrentConsent = settings.aiConsentAccepted && settings.aiConsentVersion === AI_CONTEXT_CONSENT_VERSION;
   const [status, setStatus] = useState<AiKeyStatus>({ openai: false, gemini: false });
   const [keys, setKeys] = useState<Record<AiProvider, string>>({ openai: "", gemini: "" });
   const [busy, setBusy] = useState<AiProvider | null>(null);
@@ -116,8 +117,8 @@ export function AiSettings({ settings, updateSettings, requestConfirmation }: Pr
         </section>;
       })}
       <section className="ai-data-settings">
-        <div><ShieldCheck size={18}/><span><strong>Які дані бачить AI</strong><small>Назви й статуси проєктів та задач, підсумки часу і до 8 останніх повідомлень. Ключ ніколи не передається в інтерфейс.</small></span></div>
-        <div className="ai-data-controls"><label className="switch-row"><span>Передавати історію фокус-сесій</span><input type="checkbox" checked={settings.aiIncludeSessionHistory} onChange={(event) => updateSettings({ aiIncludeSessionHistory: event.target.checked })}/><i/></label>{settings.aiConsentAccepted && <button onClick={() => updateSettings({ aiConsentAccepted: false })}>Скасувати дозвіл</button>}</div>
+        <div><ShieldCheck size={18}/><span><strong>Які дані бачить AI</strong><small>Назви, описи й статуси проєктів, назви та іконки задач, підсумки часу і до 8 останніх повідомлень. Опис проєкту допомагає підібрати іконки. Ключ ніколи не передається в інтерфейс.</small></span></div>
+        <div className="ai-data-controls"><label className="switch-row"><span>Передавати історію фокус-сесій</span><input type="checkbox" checked={settings.aiIncludeSessionHistory} onChange={(event) => updateSettings({ aiIncludeSessionHistory: event.target.checked })}/><i/></label>{hasCurrentConsent && <button onClick={() => updateSettings({ aiConsentAccepted: false, aiConsentVersion: 0 })}>Скасувати дозвіл</button>}</div>
       </section>
       {message && <div className="ai-settings-message success"><CheckCircle2 size={16}/>{message}</div>}
       {error && <div className="ai-settings-message error">{error}</div>}

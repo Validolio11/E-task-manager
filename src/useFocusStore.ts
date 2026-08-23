@@ -6,15 +6,20 @@ import {
   emptySnapshot,
   FocusSession,
   INBOX_PROJECT_ID,
+  isTaskTargetMinutes,
+  normalizeTaskIconKey,
   Project,
+  removeTaskWithSessions,
   sanitizeSnapshot,
+  setTaskTargetMinutes,
   Task,
+  TaskIconKey,
   trackedTimeByTask,
 } from "./domain";
 import { loadSnapshot, saveSnapshot } from "./persistence";
 
 type ProjectInput = Pick<Project, "title" | "description" | "skill">;
-type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes">;
+type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes"> & { iconKey?: TaskIconKey };
 
 function uuid() {
   return crypto.randomUUID();
@@ -173,10 +178,12 @@ export function useFocusStore() {
   }, [commit]);
 
   const createTask = useCallback((input: TaskInput) => {
+    if (!isTaskTargetMinutes(input.targetMinutes)) throw new Error("Ціль фокусу має бути цілим числом від 1 до 240 хвилин.");
     const timestamp = new Date().toISOString();
     const projectId = input.projectId || INBOX_PROJECT_ID;
     const task: Task = {
       id: uuid(), title: input.title.trim(), projectId, targetMinutes: input.targetMinutes,
+      iconKey: normalizeTaskIconKey(input.iconKey),
       status: "todo", sortOrder: 0,
       createdAt: timestamp, updatedAt: timestamp, completedAt: null,
     };
@@ -193,17 +200,36 @@ export function useFocusStore() {
   }, [commit]);
 
   const updateTask = useCallback((id: string, input: TaskInput) => {
+    if (!isTaskTargetMinutes(input.targetMinutes)) throw new Error("Ціль фокусу має бути цілим числом від 1 до 240 хвилин.");
     const updatedAt = new Date().toISOString();
-    const normalizedInput = { ...input, projectId: input.projectId || INBOX_PROJECT_ID };
+    const projectId = input.projectId || INBOX_PROJECT_ID;
     commit((current) => {
-      const needsInbox = normalizedInput.projectId === INBOX_PROJECT_ID && !current.projects.some((project) => project.id === INBOX_PROJECT_ID);
+      const needsInbox = projectId === INBOX_PROJECT_ID && !current.projects.some((project) => project.id === INBOX_PROJECT_ID);
       return {
         ...current,
         projects: needsInbox ? [...current.projects, inboxProject(updatedAt, current.projects.length)] : current.projects,
-        tasks: current.tasks.map((task) => task.id === id ? { ...task, ...normalizedInput, title: input.title.trim(), updatedAt } : task),
+        tasks: current.tasks.map((task) => task.id === id ? {
+          ...task,
+          title: input.title.trim(),
+          projectId,
+          targetMinutes: input.targetMinutes,
+          iconKey: input.iconKey === undefined ? task.iconKey : normalizeTaskIconKey(input.iconKey),
+          updatedAt,
+        } : task),
       };
     });
     setNotice("Задачу оновлено.");
+  }, [commit]);
+
+  const updateTaskTarget = useCallback((id: string, targetMinutes: number) => {
+    if (!isTaskTargetMinutes(targetMinutes) || !dataRef.current.tasks.some((task) => task.id === id)) {
+      setNotice("Вкажи цілу ціль від 1 до 240 хвилин.");
+      return false;
+    }
+    const updatedAt = new Date().toISOString();
+    commit((current) => setTaskTargetMinutes(current, id, targetMinutes, updatedAt));
+    setNotice(`Ціль фокусу змінено на ${targetMinutes} хв.`);
+    return true;
   }, [commit]);
 
   const startTask = useCallback((taskId: string, targetMinutes?: number) => {
@@ -249,11 +275,7 @@ export function useFocusStore() {
   }, [commit]);
 
   const deleteTask = useCallback((taskId: string) => {
-    commit((current) => ({
-      ...current,
-      tasks: current.tasks.filter((task) => task.id !== taskId),
-      sessions: current.sessions.filter((session) => session.taskId !== taskId),
-    }));
+    commit((current) => removeTaskWithSessions(current, taskId));
     setNotice("Задачу та її статистику видалено.");
   }, [commit]);
 
@@ -290,7 +312,7 @@ export function useFocusStore() {
 
   return {
     data, loading, notice, activeSession, activeTask, finalizedMsByTask,
-    createProject, updateProject, createTask, updateTask, startTask, stopActive,
+    createProject, updateProject, createTask, updateTask, updateTaskTarget, startTask, stopActive,
     completeTask, reopenTask, deleteTask, deleteProject, updateSettings, importBackup, resetAll,
   };
 }

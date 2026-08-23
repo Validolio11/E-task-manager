@@ -1,11 +1,12 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, Edit3, KeyRound, LoaderCircle, Plus, RefreshCw, Send, Settings as SettingsIcon, Sparkles, Square, WandSparkles, X } from "lucide-react";
-import { AppSettings, AppSnapshot, INBOX_PROJECT_ID, Project, Task } from "../../domain";
+import { AI_CONTEXT_CONSENT_VERSION, AppSettings, AppSnapshot, DEFAULT_TASK_ICON_KEY, INBOX_PROJECT_ID, isTaskTargetMinutes, Project, Task, TaskIconKey } from "../../domain";
 import { RequestConfirmation } from "../../components/ConfirmDialog";
 import { AiAction, AiChatMessage, AiKeyStatus, askAi, buildAiPrompt, cancelAiRequest, getAiKeyStatus, orderAiActionsForExecution } from "./ai";
+import { TaskIcon, TASK_ICON_OPTIONS } from "../tasks/TaskIcon";
 
 type ProjectInput = Pick<Project, "title" | "description" | "skill">;
-type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes">;
+type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes"> & { iconKey?: TaskIconKey };
 
 interface Props {
   data: AppSnapshot;
@@ -48,6 +49,18 @@ function actionTitle(action: AiAction, data: AppSnapshot) {
   return `Завершити задачу «${task?.title ?? "Невідома"}»`;
 }
 
+function actionIconKey(action: AiAction, data: AppSnapshot) {
+  if (action.iconKey) return action.iconKey;
+  if (action.type !== "create_task") return data.tasks.find((task) => task.id === action.taskId)?.iconKey ?? DEFAULT_TASK_ICON_KEY;
+  return DEFAULT_TASK_ICON_KEY;
+}
+
+function actionTargetMinutes(action: AiAction, fallback: number) {
+  if (action.targetMinutes == null) return fallback;
+  if (!isTaskTargetMinutes(action.targetMinutes)) throw new Error("Ціль фокусу має бути цілим числом від 1 до 240 хвилин.");
+  return action.targetMinutes;
+}
+
 function actionSummary(actions: AiAction[]) {
   const groups: [number, string][] = [
     [actions.filter((action) => action.type === "create_project").length, "проєктів"],
@@ -61,6 +74,7 @@ function actionSummary(actions: AiAction[]) {
 export function AiAssistant({ data, createProject, createTask, updateTask, completeTask, updateSettings, onOpenSettings, requestConfirmation }: Props) {
   const provider = data.settings.aiProvider;
   const model = provider === "openai" ? data.settings.openaiModel : data.settings.geminiModel;
+  const hasCurrentConsent = data.settings.aiConsentAccepted && data.settings.aiConsentVersion === AI_CONTEXT_CONSENT_VERSION;
   const [keyStatus, setKeyStatus] = useState<AiKeyStatus | null>(null);
   const [messages, setMessages] = useState<AiChatMessage[]>(loadMessages);
   const [input, setInput] = useState("");
@@ -126,7 +140,7 @@ export function AiAssistant({ data, createProject, createTask, updateTask, compl
     }
     if (action.type === "create_task") {
       if (!action.title?.trim()) throw new Error("AI не вказав назву задачі.");
-      createTask({ title: action.title, projectId: resolveProjectId(action, batchProjects), targetMinutes: Math.min(240, Math.max(1, action.targetMinutes ?? 15)) });
+      createTask({ title: action.title, projectId: resolveProjectId(action, batchProjects), targetMinutes: actionTargetMinutes(action, 15), iconKey: action.iconKey ?? DEFAULT_TASK_ICON_KEY });
       return;
     }
     if (action.type === "update_task") {
@@ -136,7 +150,8 @@ export function AiAssistant({ data, createProject, createTask, updateTask, compl
       updateTask(task.id, {
         title: action.title?.trim() || task.title,
         projectId: requestedProject === INBOX_PROJECT_ID || (requestedProject && (projectsById.has(requestedProject) || [...batchProjects.values()].includes(requestedProject))) ? requestedProject : task.projectId,
-        targetMinutes: Math.min(240, Math.max(1, action.targetMinutes ?? task.targetMinutes)),
+        targetMinutes: actionTargetMinutes(action, task.targetMinutes),
+        iconKey: action.iconKey ?? task.iconKey,
       });
       return;
     }
@@ -207,7 +222,7 @@ export function AiAssistant({ data, createProject, createTask, updateTask, compl
     event?.preventDefault();
     const question = input.trim();
     if (!question || busy) return;
-    if (!data.settings.aiConsentAccepted) return setError("Підтвердь передачу вибраного контексту перед першим запитом.");
+    if (!hasCurrentConsent) return setError("Підтвердь передачу вибраного контексту перед першим запитом.");
     if (!hasKey) return setError(`Додай ${provider === "openai" ? "OpenAI" : "Gemini"} API-ключ у Налаштуваннях.`);
     const history = messages;
     const currentMessages = [...messages, { id: crypto.randomUUID(), role: "user" as const, content: question }];
@@ -239,24 +254,24 @@ export function AiAssistant({ data, createProject, createTask, updateTask, compl
       <div className="ai-chat-head"><div><span className={`ai-status ${keyStatus === null ? "checking" : !hasKey ? "offline" : ""}`}><i/> {provider === "openai" ? "GPT · OpenAI" : "Gemini · Google"} · {model}</span><strong>Чат E-task</strong></div><div className="ai-chat-head-actions"><button className="ai-settings-link" onClick={onOpenSettings}><SettingsIcon size={14}/> Налаштування</button><button onClick={clearChat} disabled={!messages.length && !error}>Очистити чат</button></div></div>
       <div className="ai-messages">
         {keyStatus && !hasKey && <div className="ai-setup-notice"><KeyRound size={20}/><div><strong>Підключи {provider === "openai" ? "GPT" : "Gemini"}</strong><span>API-ключ налаштовується один раз і зберігається у Windows.</span></div><button onClick={onOpenSettings}>Відкрити налаштування</button></div>}
-        {!data.settings.aiConsentAccepted && <div className="ai-consent"><WandSparkles size={22}/><div><strong>Перед першим запитом</strong><span>AI отримає назви й статуси проєктів та задач, підсумки часу, останні повідомлення{data.settings.aiIncludeSessionHistory ? " та історію фокус-сесій" : " без історії фокус-сесій"}. API-ключ залишається у Windows.</span></div><button onClick={() => updateSettings({ aiConsentAccepted: true })}><Check size={15}/> Погоджуюсь</button></div>}
+        {!hasCurrentConsent && <div className="ai-consent"><WandSparkles size={22}/><div><strong>Перед першим запитом</strong><span>AI отримає назви, описи й статуси проєктів, назви та іконки задач, підсумки часу, останні повідомлення{data.settings.aiIncludeSessionHistory ? " та історію фокус-сесій" : " без історії фокус-сесій"}. Опис допомагає підібрати доречні іконки. API-ключ залишається у Windows.</span></div><button onClick={() => updateSettings({ aiConsentAccepted: true, aiConsentVersion: AI_CONTEXT_CONSENT_VERSION })}><Check size={15}/> Погоджуюсь</button></div>}
         {!messages.length && <div className="ai-welcome"><span><Sparkles size={27}/></span><h2>Що розібрати?</h2><p>Запитай про навантаження, наступний крок або попроси підготувати задачі. Жодна зміна не застосовується автоматично.</p><div className="ai-context-summary"><span>{data.projects.length} проєктів</span><span>{data.tasks.length} задач</span><span>{data.settings.aiIncludeSessionHistory ? `${data.sessions.length} сесій` : "Сесії вимкнено"}</span></div><div className="ai-suggestions">{["Проаналізуй мою продуктивність", "Що варто зробити наступним?", "Розбий активний проєкт на задачі"].map((suggestion) => <button key={suggestion} onClick={() => setInput(suggestion)}>{suggestion}</button>)}</div></div>}
         {messages.map((message) => <div className={`ai-message ${message.role}`} key={message.id}><span>{message.role === "assistant" ? <Bot size={16}/> : "Ви"}</span><div><p>{message.content}</p>{message.actions && message.actions.length > 1 && message.actions.some((_, index) => !applied.has(`${message.id}:${index}`)) && <div className="ai-actions-summary"><span>{actionSummary(message.actions.filter((_, index) => !applied.has(`${message.id}:${index}`)))}</span><button onClick={() => applyAll(message)}><WandSparkles size={15}/> Застосувати все</button></div>}{message.actions?.map((action, index) => {
           const key = `${message.id}:${index}`;
           const done = applied.has(key);
           const editing = editingAction === key;
           const newProjects = message.actions?.filter((item) => item.type === "create_project" && item.title?.trim()) ?? [];
-          return <article className="ai-action-card" key={key}><div className="ai-action-main"><div><strong>{actionTitle(action, data)}</strong><small>{action.type.includes("task") && action.targetMinutes ? `Ціль: ${action.targetMinutes} хв` : "Перевір дію перед застосуванням"}</small></div>{editing && !done && <div className="ai-action-editor">
+          return <article className="ai-action-card" key={key}><div className="ai-action-main"><div><strong className="ai-action-title">{action.type.includes("task") && <TaskIcon iconKey={actionIconKey(action, data)} size={16}/>}<span>{actionTitle(action, data)}</span></strong><small>{action.type.includes("task") && action.targetMinutes ? `Ціль: ${action.targetMinutes} хв` : "Перевір дію перед застосуванням"}</small></div>{editing && !done && <div className="ai-action-editor">
             {action.type !== "complete_task" && <label>Назва<input value={action.title ?? ""} onChange={(event) => updateAction(message.id, index, { title: event.target.value })}/></label>}
             {action.type === "create_project" && <><label>Навичка<input value={action.skill ?? "Інше"} onChange={(event) => updateAction(message.id, index, { skill: event.target.value })}/></label><label>Опис<input value={action.description ?? ""} onChange={(event) => updateAction(message.id, index, { description: event.target.value })}/></label></>}
-            {(action.type === "create_task" || action.type === "update_task") && <><label>Проєкт<select value={action.projectId ? `id:${action.projectId}` : action.projectTitle ? `new:${action.projectTitle}` : ""} onChange={(event) => { const [kind, ...rest] = event.target.value.split(":"); const value = rest.join(":"); updateAction(message.id, index, kind === "id" ? { projectId: value, projectTitle: null } : kind === "new" ? { projectId: null, projectTitle: value } : { projectId: null, projectTitle: null }); }}><option value="">Без проєкту</option>{data.projects.filter((project) => project.id !== INBOX_PROJECT_ID).map((project) => <option value={`id:${project.id}`} key={project.id}>{project.title}</option>)}{newProjects.map((project) => <option value={`new:${project.title}`} key={`new:${project.title}`}>{project.title} · новий</option>)}</select></label><label>Ціль, хв<input type="number" min="1" max="240" value={action.targetMinutes ?? 15} onChange={(event) => updateAction(message.id, index, { targetMinutes: Number(event.target.value) })}/></label></>}
+            {(action.type === "create_task" || action.type === "update_task") && <><label>Проєкт<select value={action.projectId ? `id:${action.projectId}` : action.projectTitle ? `new:${action.projectTitle}` : ""} onChange={(event) => { const [kind, ...rest] = event.target.value.split(":"); const value = rest.join(":"); updateAction(message.id, index, kind === "id" ? { projectId: value, projectTitle: null } : kind === "new" ? { projectId: null, projectTitle: value } : { projectId: null, projectTitle: null }); }}><option value="">Без проєкту</option>{data.projects.filter((project) => project.id !== INBOX_PROJECT_ID).map((project) => <option value={`id:${project.id}`} key={project.id}>{project.title}</option>)}{newProjects.map((project) => <option value={`new:${project.title}`} key={`new:${project.title}`}>{project.title} · новий</option>)}</select></label><label>Іконка<select value={action.iconKey ?? ""} onChange={(event) => updateAction(message.id, index, { iconKey: event.target.value ? event.target.value as TaskIconKey : null })}><option value="">{action.type === "update_task" ? "Не змінювати" : "Загальна задача"}</option>{TASK_ICON_OPTIONS.map((option) => <option value={option.key} key={option.key}>{option.label}</option>)}</select></label><label>Ціль, хв<input type="number" min="1" max="240" step="1" value={action.targetMinutes ?? 15} onChange={(event) => updateAction(message.id, index, { targetMinutes: Number(event.target.value) })}/></label></>}
           </div>}</div><div className="ai-action-buttons">{!done && action.type !== "complete_task" && <button className="edit" onClick={() => setEditingAction(editing ? null : key)}>{editing ? <X size={15}/> : <Edit3 size={15}/>} {editing ? "Закрити" : "Змінити"}</button>}<button disabled={done} onClick={() => applyAction(message.id, index, action)}>{done ? <><Check size={15}/> Застосовано</> : <><Plus size={15}/> Підтвердити</>}</button></div></article>;
         })}</div></div>)}
         {busy && <div className="ai-message assistant"><span><Bot size={16}/></span><div className="ai-thinking"><LoaderCircle className="spin" size={17}/> Аналізую локальні дані…</div></div>}
         <div ref={messagesEnd}/>
       </div>
       {error && <div className="ai-error"><span>{error}</span>{retryContext && !busy && error !== "Запит зупинено." && <button onClick={() => void retry()}><RefreshCw size={14}/> Повторити</button>}</div>}
-      <form className="ai-composer" onSubmit={send}><textarea rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Наприклад: проаналізуй цей тиждень і запропонуй три наступні задачі…"/>{busy ? <button className="stop" type="button" onClick={() => void stopRequest()} aria-label="Зупинити запит"><Square size={17}/></button> : <button type="submit" disabled={!input.trim() || !data.settings.aiConsentAccepted || keyStatus === null || !hasKey} aria-label="Надіслати"><Send size={18}/></button>}</form>
+      <form className="ai-composer" onSubmit={send}><textarea rows={2} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void send(); } }} placeholder="Наприклад: проаналізуй цей тиждень і запропонуй три наступні задачі…"/>{busy ? <button className="stop" type="button" onClick={() => void stopRequest()} aria-label="Зупинити запит"><Square size={17}/></button> : <button type="submit" disabled={!input.trim() || !hasCurrentConsent || keyStatus === null || !hasKey} aria-label="Надіслати"><Send size={18}/></button>}</form>
     </section></div>
   </section>;
 }

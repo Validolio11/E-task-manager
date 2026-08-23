@@ -2,6 +2,15 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.12
+
+- Added a custom task menu for editing task details and focus time, plus a confirmation dialog for deletion.
+- Added semantic task icons that AI selects from project context, with safe defaults, persistence and manual review before applying suggestions.
+- Replaced the Current Task card's accent gradient with a calm solid surface that works consistently in light and dark themes.
+- Hardened AI requests and error handling for providers that reject unsupported cache-retention parameters.
+- Improved keyboard navigation and focus behavior in task menus, and kept task selection separate from explicitly starting the timer.
+- Added database migration, backup compatibility and regression coverage for task icons and validated whole-minute focus targets.
+
 ## v0.2.11
 
 - Made selecting a task separate from starting its timer, with an explicit Play action for queued tasks.

@@ -6,6 +6,38 @@ export type Theme = "light" | "dark" | "system";
 export type Accent = "lime" | "yellow" | "blue" | "violet";
 export type AiProvider = "openai" | "gemini";
 export const INBOX_PROJECT_ID = "system-inbox";
+export const AI_CONTEXT_CONSENT_VERSION = 2;
+
+export const TASK_ICON_KEYS = [
+  "list-todo",
+  "code",
+  "design",
+  "writing",
+  "research",
+  "learning",
+  "communication",
+  "planning",
+  "document",
+  "analysis",
+  "marketing",
+  "build",
+  "health",
+  "fitness",
+  "creative",
+  "video",
+] as const;
+
+export type TaskIconKey = typeof TASK_ICON_KEYS[number];
+export const DEFAULT_TASK_ICON_KEY: TaskIconKey = "list-todo";
+const taskIconKeySet = new Set<string>(TASK_ICON_KEYS);
+
+export function isTaskIconKey(value: unknown): value is TaskIconKey {
+  return typeof value === "string" && taskIconKeySet.has(value);
+}
+
+export function normalizeTaskIconKey(value: unknown): TaskIconKey {
+  return isTaskIconKey(value) ? value : DEFAULT_TASK_ICON_KEY;
+}
 
 export interface Project {
   id: string;
@@ -24,6 +56,7 @@ export interface Task {
   title: string;
   status: TaskStatus;
   targetMinutes: number;
+  iconKey: TaskIconKey;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -51,6 +84,7 @@ export interface AppSettings {
   geminiModel: string;
   aiIncludeSessionHistory: boolean;
   aiConsentAccepted: boolean;
+  aiConsentVersion: number;
 }
 
 export interface AppSnapshot {
@@ -72,6 +106,7 @@ export const defaultSettings: AppSettings = {
   geminiModel: "gemini-2.5-flash",
   aiIncludeSessionHistory: true,
   aiConsentAccepted: false,
+  aiConsentVersion: 0,
 };
 
 export const emptySnapshot = (): AppSnapshot => ({
@@ -133,6 +168,27 @@ export function formatTimer(ms: number) {
   const seconds = totalSeconds % 60;
   const base = `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
   return hours ? `${String(hours).padStart(2, "0")}:${base}` : base;
+}
+
+export function isTaskTargetMinutes(value: number): value is number {
+  return Number.isInteger(value) && value >= 1 && value <= 240;
+}
+
+export function setTaskTargetMinutes(snapshot: AppSnapshot, taskId: string, targetMinutes: number, updatedAt: string): AppSnapshot {
+  if (!isTaskTargetMinutes(targetMinutes)) throw new Error("Ціль фокусу має бути цілим числом від 1 до 240 хвилин.");
+  if (!snapshot.tasks.some((task) => task.id === taskId)) throw new Error("Задачу не знайдено.");
+  return {
+    ...snapshot,
+    tasks: snapshot.tasks.map((task) => task.id === taskId ? { ...task, targetMinutes, updatedAt } : task),
+  };
+}
+
+export function removeTaskWithSessions(snapshot: AppSnapshot, taskId: string): AppSnapshot {
+  return {
+    ...snapshot,
+    tasks: snapshot.tasks.filter((task) => task.id !== taskId),
+    sessions: snapshot.sessions.filter((session) => session.taskId !== taskId),
+  };
 }
 
 export function focusStage(ms: number) {
@@ -202,7 +258,10 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
   }
   const isDate = (date: unknown) => typeof date === "string" && Number.isFinite(Date.parse(date));
   const isText = (text: unknown) => typeof text === "string";
-  const positiveMinutes = (minutes: unknown): minutes is number => typeof minutes === "number" && Number.isFinite(minutes) && minutes >= 1 && minutes <= 240;
+  const positiveMinutes = (minutes: unknown): minutes is number => typeof minutes === "number" && isTaskTargetMinutes(minutes);
+  const normalizedTasks = (input.tasks as unknown[]).map((task) => task && typeof task === "object"
+    ? { ...task, iconKey: normalizeTaskIconKey((task as Partial<Task>).iconKey) }
+    : task);
   const validProject = (project: unknown): project is Project => {
     if (!project || typeof project !== "object") return false;
     const item = project as Partial<Project>;
@@ -215,6 +274,7 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
     const item = task as Partial<Task>;
     return isText(item.id) && Boolean(item.id) && isText(item.projectId) && isText(item.title) && Boolean(item.title.trim())
       && ["todo", "in_progress", "completed"].includes(item.status ?? "") && positiveMinutes(item.targetMinutes)
+      && isTaskIconKey(item.iconKey)
       && Number.isFinite(item.sortOrder) && isDate(item.createdAt) && isDate(item.updatedAt)
       && (item.completedAt === null || isDate(item.completedAt));
   };
@@ -226,15 +286,16 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
       && (item.durationMs === null || (typeof item.durationMs === "number" && Number.isFinite(item.durationMs) && item.durationMs >= 0))
       && positiveMinutes(item.targetMinutes) && typeof item.targetNotified === "boolean";
   };
-  if (!input.projects.every(validProject) || !input.tasks.every(validTask) || !input.sessions.every(validSession)) {
+  if (!input.projects.every(validProject) || !normalizedTasks.every(validTask) || !input.sessions.every(validSession)) {
     throw new Error("Резервна копія містить некоректні проєкти, задачі або сесії.");
   }
   const projectIds = new Set(input.projects.map((project) => project.id));
-  const taskIds = new Set(input.tasks.map((task) => task.id));
-  if (projectIds.size !== input.projects.length || taskIds.size !== input.tasks.length || new Set(input.sessions.map((session) => session.id)).size !== input.sessions.length) {
+  const tasks = normalizedTasks as Task[];
+  const taskIds = new Set(tasks.map((task) => task.id));
+  if (projectIds.size !== input.projects.length || taskIds.size !== tasks.length || new Set(input.sessions.map((session) => session.id)).size !== input.sessions.length) {
     throw new Error("Резервна копія містить дублікати записів.");
   }
-  if (input.tasks.some((task) => !projectIds.has(task.projectId)) || input.sessions.some((session) => !taskIds.has(session.taskId))) {
+  if (tasks.some((task) => !projectIds.has(task.projectId)) || input.sessions.some((session) => !taskIds.has(session.taskId))) {
     throw new Error("Резервна копія містить задачі або сесії без пов’язаних даних.");
   }
   if (input.sessions.filter((session) => !session.endedAt).length > 1) {
@@ -251,7 +312,7 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
   return {
     schemaVersion: 1,
     projects: input.projects,
-    tasks: input.tasks,
+    tasks,
     sessions: input.sessions,
     settings: {
       theme,
@@ -264,6 +325,9 @@ export function sanitizeSnapshot(value: unknown): AppSnapshot {
       geminiModel: safeModel(sourceSettings.geminiModel, defaultSettings.geminiModel),
       aiIncludeSessionHistory: typeof sourceSettings.aiIncludeSessionHistory === "boolean" ? sourceSettings.aiIncludeSessionHistory : defaultSettings.aiIncludeSessionHistory,
       aiConsentAccepted: typeof sourceSettings.aiConsentAccepted === "boolean" ? sourceSettings.aiConsentAccepted : defaultSettings.aiConsentAccepted,
+      aiConsentVersion: typeof sourceSettings.aiConsentVersion === "number" && Number.isInteger(sourceSettings.aiConsentVersion)
+        ? sourceSettings.aiConsentVersion
+        : defaultSettings.aiConsentVersion,
     },
   };
 }

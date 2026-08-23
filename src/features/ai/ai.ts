@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import { AiProvider, AppSnapshot, sessionDuration, startOfDay, startOfWeek, totalInside } from "../../domain";
+import { AiProvider, AppSnapshot, isTaskIconKey, isTaskTargetMinutes, sessionDuration, startOfDay, startOfWeek, TaskIconKey, totalInside } from "../../domain";
 
 export type { AiProvider } from "../../domain";
 export type AiActionType = "create_project" | "create_task" | "update_task" | "complete_task";
@@ -13,6 +13,7 @@ export interface AiAction {
   description: string | null;
   skill: string | null;
   targetMinutes: number | null;
+  iconKey: TaskIconKey | null;
 }
 
 export interface AiReply {
@@ -52,7 +53,8 @@ export function parseAiReply(raw: string): AiReply {
       projectTitle: typeof candidate.projectTitle === "string" ? candidate.projectTitle : null,
       description: typeof candidate.description === "string" ? candidate.description : null,
       skill: typeof candidate.skill === "string" ? candidate.skill : null,
-      targetMinutes: typeof candidate.targetMinutes === "number" && Number.isFinite(candidate.targetMinutes) ? candidate.targetMinutes : null,
+      targetMinutes: isTaskTargetMinutes(candidate.targetMinutes as number) ? candidate.targetMinutes as number : null,
+      iconKey: isTaskIconKey(candidate.iconKey) ? candidate.iconKey : null,
     };
   });
   return { message: value.message.trim() || "Готово.", actions };
@@ -65,6 +67,7 @@ export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMes
     title: project.title,
     status: project.status,
     skill: project.skill,
+    description: project.description,
   }));
   const tasks = data.tasks.map((task) => ({
     id: task.id,
@@ -72,6 +75,7 @@ export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMes
     title: task.title,
     status: task.status,
     targetMinutes: task.targetMinutes,
+    iconKey: task.iconKey,
   }));
   const sessions = data.settings.aiIncludeSessionHistory ? data.sessions.map((session) => ({
     taskId: session.taskId,
@@ -95,6 +99,8 @@ export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMes
     "Не пропонуй видалення. Якщо користувач просить тільки аналіз або пораду, поверни actions: [].",
     "Для задачі без проєкту використовуй projectId: null і projectTitle: null. Для наявних сутностей використовуй точні ID з контексту.",
     "Якщо пропонуєш новий проєкт і задачі для нього в одній відповіді, у кожній такій задачі встанови projectId: null, а projectTitle — точну назву нового проєкту.",
+    "Для кожної create_task обери iconKey лише з цього каталогу: list-todo=загальна задача; code=код і розробка; design=дизайн; writing=написання; research=пошук і дослідження; learning=навчання; communication=спілкування; planning=планування; document=документи; analysis=аналіз даних; marketing=просування; build=створення або ремонт; health=здоров’я; fitness=тренування; creative=творча робота; video=відео й анімація.",
+    "Обирай іконку насамперед за змістом задачі, а опис, назву й навичку пов’язаного проєкту використовуй як контекст. Не повертай emoji, SVG, URL або назву компонента. Для update_task поверни iconKey: null, якщо іконку не потрібно змінювати.",
     `Поточний час ISO: ${new Date(now).toISOString()}`,
     `Проєкти: ${JSON.stringify(projects)}`,
     `Задачі: ${JSON.stringify(tasks)}`,

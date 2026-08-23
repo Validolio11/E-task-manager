@@ -1,5 +1,5 @@
 import Database from "@tauri-apps/plugin-sql";
-import { AppSnapshot, defaultSettings, emptySnapshot, FocusSession, Project, sanitizeSnapshot, Task } from "./domain";
+import { AppSnapshot, defaultSettings, emptySnapshot, FocusSession, normalizeTaskIconKey, Project, sanitizeSnapshot, Task } from "./domain";
 
 const DATABASE_URL = "sqlite:etask.db";
 const BROWSER_KEY = "etask.snapshot.v1";
@@ -22,6 +22,7 @@ type TaskRow = {
   title: string;
   status: Task["status"];
   target_duration_ms: number;
+  icon_key: string | null;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -78,6 +79,7 @@ export async function loadSnapshot(): Promise<AppSnapshot> {
     title: row.title,
     status: row.status,
     targetMinutes: Math.max(1, Math.round(row.target_duration_ms / 60_000)),
+    iconKey: normalizeTaskIconKey(row.icon_key),
     sortOrder: row.sort_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -175,17 +177,18 @@ async function writeDesktopSnapshot(snapshot: AppSnapshot) {
     if (sameTask(previousTasks.get(task.id), task)) continue;
     await executeWithRetry(
       database,
-      `INSERT INTO tasks (id, project_id, title, status, target_duration_ms, sort_order, created_at, updated_at, completed_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO tasks (id, project_id, title, status, target_duration_ms, icon_key, sort_order, created_at, updated_at, completed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          project_id = excluded.project_id,
          title = excluded.title,
          status = excluded.status,
          target_duration_ms = excluded.target_duration_ms,
+         icon_key = excluded.icon_key,
          sort_order = excluded.sort_order,
          updated_at = excluded.updated_at,
          completed_at = excluded.completed_at`,
-      [task.id, task.projectId, task.title, task.status, task.targetMinutes * 60_000, task.sortOrder, task.createdAt, task.updatedAt, task.completedAt],
+      [task.id, task.projectId, task.title, task.status, task.targetMinutes * 60_000, task.iconKey, task.sortOrder, task.createdAt, task.updatedAt, task.completedAt],
     );
   }
   for (const session of snapshot.sessions) {
@@ -249,6 +252,7 @@ function sameTask(previous: Task | undefined, next: Task) {
     && previous.title === next.title
     && previous.status === next.status
     && previous.targetMinutes === next.targetMinutes
+    && previous.iconKey === next.iconKey
     && previous.sortOrder === next.sortOrder
     && previous.createdAt === next.createdAt
     && previous.updatedAt === next.updatedAt

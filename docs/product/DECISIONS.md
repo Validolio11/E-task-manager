@@ -4,6 +4,22 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-24 — AI-selected task icons
+
+- Every task stores one semantic icon key from a fixed application-owned catalog and falls back to a neutral task icon when no specific category applies.
+- For AI-proposed tasks, the assistant selects an icon from that catalog using the task title plus the linked project title, description and skill as context.
+- AI icon choices remain visible and editable in the proposal card before Apply. Arbitrary SVG, HTML, CSS, URLs, emoji payloads and unknown component names are never accepted from a provider.
+- Existing tasks and older backups without an icon key are migrated to the neutral fallback without data loss.
+- Because project descriptions are sent to the selected AI provider for this analysis, the consent disclosure explicitly names descriptions and previously accepted users must confirm the updated context disclosure.
+
+## 2026-08-24 — Task context actions and focus-target editing
+
+- Task rows expose a custom context menu through a visible actions button and the native right-click gesture.
+- The menu includes task metadata editing, focus-time editing and task deletion.
+- “Edit time” changes the task's focus target for future sessions; it never rewrites already tracked time, analytics or the target stored on an active session.
+- Deleting from the context menu uses the same user-facing confirmation flow as every other task deletion and removes the task's tracked sessions only after confirmation.
+- The menu and dialogs must support keyboard navigation, focus restoration and viewport-safe positioning in compact windows.
+
 ## 2026-08-23 — Explicit task selection and timer start
 
 - Clicking the content of a task in Home → Next Tasks selects it as the next candidate and must not start, stop or replace a focus session.

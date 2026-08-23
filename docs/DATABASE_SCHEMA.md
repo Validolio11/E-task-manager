@@ -6,6 +6,8 @@ This document defines the initial SQLite data model for E-task V1. It is designe
 
 Migration `0001_init.sql` implements the core `projects`, `tasks`, `focus_sessions` and
 `app_settings` tables. The first practical UI stores one primary skill in `projects.skill`.
+Migration `0002_add_task_icon.sql` adds the stable `tasks.icon_key` presentation field and
+defaults existing tasks to `list-todo` without changing their tracked data.
 The normalized `skills`, `project_skills` and `task_skills` tables below remain the target
 for a follow-up migration when multi-skill selection is added. Existing primary-skill data
 must be migrated, not discarded.
@@ -66,6 +68,7 @@ CREATE TABLE tasks (
   status TEXT NOT NULL DEFAULT 'todo'
     CHECK (status IN ('todo', 'in_progress', 'completed')),
   target_duration_ms INTEGER NOT NULL DEFAULT 300000,
+  icon_key TEXT NOT NULL DEFAULT 'list-todo',
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,

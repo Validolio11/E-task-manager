@@ -461,6 +461,8 @@ If the answer is unclear, ask the user before making a large structural change.
 - Provider connection checks validate the stored key and selected model through model metadata endpoints and do not generate billable chat output.
 - Active requests have native cancellation identifiers; cancellation aborts the pending provider future rather than only hiding its result in the renderer.
 - The model receives a bounded snapshot of project/task identifiers and focus aggregates, plus recent chat turns.
+- The bounded project context includes the project description and skill so the model can choose a semantic task icon. A versioned disclosure requires renewed consent when this context expands.
+- Task icons use an application-owned string-key catalog mapped to bundled Lucide components. Provider output is validated against the catalog at the native schema, renderer parser, domain import and UI resolver boundaries.
 - Model output is validated as structured JSON. Unknown and destructive actions are discarded.
 - AI may propose create-project, create-task, update-task and complete-task operations.
 - Every mutation requires a separate user click in the UI. The model never writes directly to persistence.

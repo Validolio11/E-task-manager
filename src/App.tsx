@@ -30,6 +30,7 @@ import {
   formatDuration,
   formatTimer,
   INBOX_PROJECT_ID,
+  isTaskTargetMinutes,
   Project,
   sessionDuration,
   startOfDay,
@@ -51,6 +52,8 @@ import { AnalyticsPeriod, analyticsPeriodLabel, buildAnalyticsPeriod } from "./a
 import { focusStageProgress } from "./focusPresentation";
 import { useLiveNow, useTrackedMsByTask } from "./useLiveClock";
 import { useDialogFocus } from "./components/useDialogFocus";
+import { OpenTaskMenu, TaskContextMenu, TaskMenuRequest, TaskMenuTrigger } from "./features/tasks/TaskContextMenu";
+import { TaskIcon } from "./features/tasks/TaskIcon";
 
 const navItems: { key: ViewKey; label: string; icon: typeof Home }[] = [
   { key: "home", label: "Головна", icon: Home },
@@ -67,6 +70,7 @@ type Store = ReturnType<typeof useFocusStore>;
 type ModalState =
   | { kind: "project"; project?: Project }
   | { kind: "task"; task?: Task; projectId?: string }
+  | { kind: "task-time"; taskId: string }
   | null;
 
 function projectOf(task: Task | null | undefined, projects: Project[]) {
@@ -77,6 +81,7 @@ function App() {
   const store = useFocusStore();
   const [view, setView] = useState<ViewKey>("home");
   const [modal, setModal] = useState<ModalState>(null);
+  const [taskMenu, setTaskMenu] = useState<TaskMenuRequest | null>(null);
   const [confirmation, setConfirmation] = useState<ConfirmOptions | null>(null);
   const modalReturnFocus = useRef<HTMLElement>(null);
   const confirmationReturnFocus = useRef<HTMLElement>(null);
@@ -88,12 +93,22 @@ function App() {
     if (document.activeElement instanceof HTMLElement) confirmationReturnFocus.current = document.activeElement;
     setConfirmation(options);
   };
+  const openTaskMenu: OpenTaskMenu = (taskId, anchor, point) => {
+    setTaskMenu((current) => current?.taskId === taskId && !point ? null : { taskId, anchor, point });
+  };
+  const closeTaskMenu = (_restoreFocus: boolean) => {
+    setTaskMenu(null);
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = store.data.settings.theme;
     document.documentElement.dataset.accent = store.data.settings.accent;
     document.documentElement.dataset.compact = String(store.data.settings.compact);
   }, [store.data.settings]);
+
+  useEffect(() => {
+    if (taskMenu && !store.data.tasks.some((task) => task.id === taskMenu.taskId)) setTaskMenu(null);
+  }, [store.data.tasks, taskMenu]);
 
   const openQuickAdd = () => openModal({ kind: "task" });
 
@@ -127,8 +142,8 @@ function App() {
       </header>
 
       <div className="app-content">
-        {view === "home" && <HomePage store={store} setView={setView} openModal={openModal} requestConfirmation={requestConfirmation} />}
-        {view === "projects" && <ProjectsPage store={store} openModal={openModal} requestConfirmation={requestConfirmation} />}
+        {view === "home" && <HomePage store={store} setView={setView} openModal={openModal} openTaskMenu={openTaskMenu} taskMenuId={taskMenu?.taskId ?? null} />}
+        {view === "projects" && <ProjectsPage store={store} openModal={openModal} openTaskMenu={openTaskMenu} taskMenuId={taskMenu?.taskId ?? null} requestConfirmation={requestConfirmation} />}
         {view === "analytics" && <AnalyticsPage store={store} />}
         {view === "skills" && <SkillsPage store={store} />}
         {view === "ai" && <AiAssistant data={store.data} createProject={store.createProject} createTask={store.createTask} updateTask={store.updateTask} completeTask={store.completeTask} updateSettings={store.updateSettings} onOpenSettings={() => setView("settings")} requestConfirmation={requestConfirmation}/>}
@@ -163,6 +178,38 @@ function App() {
           }}
         />
       )}
+      {modal?.kind === "task-time" && (() => {
+        const task = store.data.tasks.find((item) => item.id === modal.taskId);
+        return task ? <TaskTimeModal
+          task={task}
+          presets={store.data.settings.focusPresets}
+          returnFocusRef={modalReturnFocus}
+          onClose={() => setModal(null)}
+          onSave={(targetMinutes) => {
+            if (store.updateTaskTarget(task.id, targetMinutes)) setModal(null);
+          }}
+        /> : null;
+      })()}
+      {taskMenu && (() => {
+        const task = store.data.tasks.find((item) => item.id === taskMenu.taskId);
+        return task ? <TaskContextMenu
+          request={taskMenu}
+          task={task}
+          onClose={closeTaskMenu}
+          onEditTask={(returnFocus) => {
+            modalReturnFocus.current = returnFocus;
+            setModal({ kind: "task", task });
+          }}
+          onEditTime={(returnFocus) => {
+            modalReturnFocus.current = returnFocus;
+            setModal({ kind: "task-time", taskId: task.id });
+          }}
+          onDelete={(returnFocus) => {
+            confirmationReturnFocus.current = returnFocus;
+            confirmDeleteTask(task, store, (options) => setConfirmation(options));
+          }}
+        /> : null;
+      })()}
       {confirmation && <ConfirmDialog options={confirmation} returnFocusRef={confirmationReturnFocus} onClose={() => setConfirmation(null)}/>}
       {store.notice && <div className="toast" role="status"><CheckCircle2 size={18}/><span>{store.notice}</span></div>}
     </main>
@@ -170,7 +217,7 @@ function App() {
   );
 }
 
-function HomePage({ store, setView, openModal, requestConfirmation }: { store: Store; setView: (view: ViewKey) => void; openModal: (modal: ModalState) => void; requestConfirmation: RequestConfirmation }) {
+function HomePage({ store, setView, openModal, openTaskMenu, taskMenuId }: { store: Store; setView: (view: ViewKey) => void; openModal: (modal: ModalState) => void; openTaskMenu: OpenTaskMenu; taskMenuId: string | null }) {
   const { data, activeTask, activeSession } = store;
   const [selectedReadyTaskId, setSelectedReadyTaskId] = useState<string | null>(null);
   const now = useLiveNow(60_000);
@@ -203,7 +250,7 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
 
   return (
     <section className="dashboard-grid page-enter">
-      <CurrentTaskCard store={store} activeProject={activeProject} readyTask={readyTask} openModal={openModal} requestConfirmation={requestConfirmation}/>
+      <CurrentTaskCard store={store} activeProject={activeProject} readyTask={readyTask} openModal={openModal} openTaskMenu={openTaskMenu} taskMenuId={taskMenuId}/>
 
       <article className="card resume-card">
         <div className="card-heading"><span>{activeTask ? "ЗАРАЗ" : "ПРОДОВЖИТИ"}</span><span className="status-pill">{activeTask ? "У фокусі" : resumeTask ? "В процесі" : "Вільно"}</span></div>
@@ -212,7 +259,7 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
           const project = projectOf(task, data.projects);
           const tracked = trackedMsByTask.get(task.id) ?? 0;
           return <>
-            <h2>{task.title}</h2>
+            <h2 className="task-heading"><TaskIcon iconKey={task.iconKey}/><span>{task.title}</span></h2>
             <p className="subtle">{project?.title ?? "Без проєкту"} · {project?.skill ?? "Інше"}</p>
             <div className="metric-large">{formatDuration(tracked)}</div>
             <p className="subtle">Усього часу в задачі</p>
@@ -231,11 +278,12 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
           {nextTasks.map((task) => {
             const project = projectOf(task, data.projects);
             const selected = selectedReadyTaskId === task.id;
-            return <li className={`task-row ${selected ? "selected" : ""}`} key={task.id}>
+            return <li className={`task-row ${selected ? "selected" : ""}`} key={task.id} onContextMenu={(event) => { event.preventDefault(); openTaskMenu(task.id, event.currentTarget.querySelector<HTMLElement>(".task-menu-trigger") ?? event.currentTarget, { x: event.clientX, y: event.clientY }); }}>
               <button className="task-row-select" onClick={() => setSelectedReadyTaskId(task.id)} aria-pressed={selected} aria-label={`Обрати задачу ${task.title} як наступну`}>
-                <span className="task-dot"/><span className="task-copy"><strong>{task.title}</strong><small>{project?.title} · {task.targetMinutes} хв</small>{selected && <em className="task-selected-label">Обрано наступною</em>}</span>
+                <TaskIcon iconKey={task.iconKey} className="task-list-icon"/><span className="task-copy"><strong>{task.title}</strong><small>{project?.title} · {task.targetMinutes} хв</small>{selected && <em className="task-selected-label">Обрано наступною</em>}</span>
               </button>
               <button className="task-row-start" onClick={() => store.startTask(task.id)} aria-label={activeTask ? `Почати задачу ${task.title} і зупинити поточну` : `Почати задачу ${task.title}, ${task.targetMinutes} хв`} title="Почати відлік"><CirclePlay size={18} aria-hidden="true"/></button>
+              <TaskMenuTrigger task={task} open={taskMenuId === task.id} openMenu={openTaskMenu}/>
             </li>;
           })}
         </ul> : <div className="list-empty"><span>Черга порожня — це теж хороший стан.</span><button onClick={() => openModal({ kind: "task" })}><Plus size={15}/> Додати задачу</button></div>}
@@ -264,7 +312,7 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
   );
 }
 
-function CurrentTaskCard({ store, activeProject, readyTask, openModal, requestConfirmation }: { store: Store; activeProject: Project | null; readyTask: Task | null; openModal: (modal: ModalState) => void; requestConfirmation: RequestConfirmation }) {
+function CurrentTaskCard({ store, activeProject, readyTask, openModal, openTaskMenu, taskMenuId }: { store: Store; activeProject: Project | null; readyTask: Task | null; openModal: (modal: ModalState) => void; openTaskMenu: OpenTaskMenu; taskMenuId: string | null }) {
   const { activeTask, activeSession } = store;
   const now = useLiveNow(activeSession ? 1000 : null);
   if (!activeTask || !activeSession) {
@@ -275,11 +323,11 @@ function CurrentTaskCard({ store, activeProject, readyTask, openModal, requestCo
   const gaugePercent = targetMs ? Math.round((elapsed / targetMs) * 100) : 0;
   const gaugeDegrees = Math.min(360, gaugePercent * 3.6);
   const stageProgress = focusStageProgress(elapsed);
-  return <article className="card current-task-card">
+  return <article className="card current-task-card" onContextMenu={(event) => { event.preventDefault(); openTaskMenu(activeTask.id, event.currentTarget.querySelector<HTMLElement>(".task-menu-trigger") ?? event.currentTarget, { x: event.clientX, y: event.clientY }); }}>
     <div className="eyebrow">ПОТОЧНА ЗАДАЧА · {activeProject?.title.toUpperCase() ?? "БЕЗ ПРОЄКТУ"}</div>
     <div className="current-task-content">
       <div className="current-copy">
-        <h1>{activeTask.title}</h1>
+        <h1 className="task-heading task-heading-on-dark"><TaskIcon iconKey={activeTask.iconKey}/><span>{activeTask.title}</span></h1>
         <p className="muted-on-dark">Ціль {activeSession.targetMinutes} хв · {activeProject?.skill ?? "Інше"}</p>
         <div className="timer">{formatTimer(elapsed)}</div>
         <div className="stage-label">{focusStage(elapsed)}{elapsed > targetMs ? ` · +${formatTimer(elapsed - targetMs)} після цілі` : ""}</div>
@@ -293,7 +341,7 @@ function CurrentTaskCard({ store, activeProject, readyTask, openModal, requestCo
     <div className="task-actions">
       <button className="action secondary" onClick={store.stopActive}><Pause size={17}/> Зупинити</button>
       <button className="action primary" onClick={() => store.completeTask(activeTask.id)}><Check size={17}/> Завершити</button>
-      <button className="action icon" aria-label="Видалити задачу" onClick={() => confirmDeleteTask(activeTask, store, requestConfirmation)}><Trash2 size={17}/></button>
+      <TaskMenuTrigger task={activeTask} open={taskMenuId === activeTask.id} openMenu={openTaskMenu}/>
     </div>
   </article>;
 }
@@ -301,7 +349,7 @@ function CurrentTaskCard({ store, activeProject, readyTask, openModal, requestCo
 function EmptyCurrent({ candidate, startTask, openModal }: { candidate: Task | null; startTask: Store["startTask"]; openModal: (modal: ModalState) => void }) {
   return <div className="empty-current-content">
     <div className="eyebrow">ПОТОЧНА ЗАДАЧА</div>
-    <div className="empty-current-icon"><CirclePlay size={32}/></div>
+    {candidate ? <TaskIcon iconKey={candidate.iconKey} size={30} className="empty-current-icon"/> : <div className="empty-current-icon"><CirclePlay size={32}/></div>}
     <h1>{candidate ? "Готовий до наступного фокусу?" : "Почни з маленького кроку"}</h1>
     <p>{candidate ? `Наступна задача: ${candidate.title}` : "Додай першу коротку задачу. Проєкт можна вибрати зараз або створити пізніше."}</p>
     {candidate
@@ -310,7 +358,7 @@ function EmptyCurrent({ candidate, startTask, openModal }: { candidate: Task | n
   </div>;
 }
 
-function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store; openModal: (modal: ModalState) => void; requestConfirmation: RequestConfirmation }) {
+function ProjectsPage({ store, openModal, openTaskMenu, taskMenuId, requestConfirmation }: { store: Store; openModal: (modal: ModalState) => void; openTaskMenu: OpenTaskMenu; taskMenuId: string | null; requestConfirmation: RequestConfirmation }) {
   const now = useLiveNow(store.activeSession ? 60_000 : null);
   const trackedMsByTask = useTrackedMsByTask(store.finalizedMsByTask, store.activeSession, now);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(store.data.projects[0]?.id ?? null);
@@ -353,14 +401,13 @@ function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store;
         {tasks.length ? <div className="full-task-list">{sortedTasks.map((task) => {
           const tracked = trackedMsByTask.get(task.id) ?? 0;
           const isActive = store.activeTask?.id === task.id;
-          return <div className={`full-task-row ${task.status === "completed" ? "completed" : ""}`} key={task.id}>
+          return <div className={`full-task-row ${task.status === "completed" ? "completed" : ""}`} key={task.id} onContextMenu={(event) => { event.preventDefault(); openTaskMenu(task.id, event.currentTarget.querySelector<HTMLElement>(".task-menu-trigger") ?? event.currentTarget, { x: event.clientX, y: event.clientY }); }}>
             <button className={`status-check ${task.status === "completed" ? "checked" : ""}`} onClick={() => task.status === "completed" ? store.reopenTask(task.id) : store.completeTask(task.id)} aria-label={task.status === "completed" ? "Повернути задачу" : "Завершити задачу"}>{task.status === "completed" && <Check size={14}/>}</button>
-            <div className="full-task-copy"><strong>{task.title}</strong><span>{task.targetMinutes} хв ціль · {formatDuration(tracked)} загалом</span></div>
+            <div className="full-task-copy"><div className="task-title-line"><TaskIcon iconKey={task.iconKey} className="task-row-icon"/><strong>{task.title}</strong></div><span>{task.targetMinutes} хв ціль · {formatDuration(tracked)} загалом</span></div>
             {isActive && <LiveTaskTimer session={store.activeSession!}/>}
             <div className="row-actions">
               {task.status !== "completed" && <button title={isActive ? "Зупинити" : "Почати"} aria-label={`${isActive ? "Зупинити" : "Почати"} задачу ${task.title}`} onClick={() => isActive ? store.stopActive() : store.startTask(task.id)}>{isActive ? <Pause size={17}/> : <CirclePlay size={17}/>}</button>}
-              <button title="Редагувати" aria-label={`Редагувати задачу ${task.title}`} onClick={() => openModal({ kind: "task", task })}><Edit3 size={16}/></button>
-              <button title="Видалити" aria-label={`Видалити задачу ${task.title}`} onClick={() => confirmDeleteTask(task, store, requestConfirmation)}><Trash2 size={16}/></button>
+              <TaskMenuTrigger task={task} open={taskMenuId === task.id} openMenu={openTaskMenu}/>
             </div>
           </div>;
         })}</div> : <div className="task-empty"><Clock3 size={28}/><strong>У проєкті ще немає задач</strong><button onClick={() => openModal({ kind: "task", projectId: selected.id })}>Додати першу</button></div>}
@@ -490,16 +537,45 @@ function TaskModal({ task, initialProjectId, projects, presets, onClose, onSave,
   const [projectId, setProjectId] = useState(task?.projectId === INBOX_PROJECT_ID ? "" : task?.projectId ?? initialProjectId ?? "");
   const [targetMinutes, setTargetMinutes] = useState(task?.targetMinutes ?? presets[0] ?? 5);
   const [start, setStart] = useState(false);
-  const submit = (event: FormEvent) => { event.preventDefault(); if (title.trim()) onSave({ title, projectId, targetMinutes: Math.max(1, targetMinutes) }, start); };
+  const submit = (event: FormEvent) => { event.preventDefault(); if (title.trim() && isTaskTargetMinutes(targetMinutes)) onSave({ title, projectId, targetMinutes }, start); };
   return <Modal title={task ? "Редагувати задачу" : "Нова задача"} subtitle="Сформулюй один конкретний наступний крок." onClose={onClose} returnFocusRef={returnFocusRef}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Що саме потрібно зробити?" required/></label><label>Проєкт <small>необов’язково</small><select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Без проєкту</option>{projects.filter((project) => project.id !== INBOX_PROJECT_ID).map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label><fieldset><legend>Ціль фокусу</legend><div className="target-options">{presets.map((preset) => <button type="button" className={targetMinutes === preset ? "selected" : ""} onClick={() => setTargetMinutes(preset)} key={preset}>{preset} хв</button>)}<label><input type="number" min="1" max="240" value={targetMinutes} onChange={(event) => setTargetMinutes(Number(event.target.value))}/><span>хв</span></label></div></fieldset>{!task && <label className="check-row"><input type="checkbox" checked={start} onChange={(event) => setStart(event.target.checked)}/><span>Одразу почати фокус</span></label>}<div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{task ? "Зберегти" : start ? "Створити й почати" : "Додати задачу"}</button></div></form></Modal>;
 }
 
-function Modal({ title, subtitle, onClose, children, returnFocusRef }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode; returnFocusRef: React.RefObject<HTMLElement | null> }) {
+function TaskTimeModal({ task, presets, onClose, onSave, returnFocusRef }: { task: Task; presets: number[]; onClose: () => void; onSave: (targetMinutes: number) => void; returnFocusRef: React.RefObject<HTMLElement | null> }) {
+  const [value, setValue] = useState(String(task.targetMinutes));
+  const [error, setError] = useState("");
+  const targetMinutes = Number(value);
+  const selectTarget = (minutes: number) => { setValue(String(minutes)); setError(""); };
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    if (!isTaskTargetMinutes(targetMinutes)) {
+      setError("Вкажи цілу кількість хвилин від 1 до 240.");
+      return;
+    }
+    onSave(targetMinutes);
+  };
+  return <Modal title="Редагувати час задачі" subtitle={`Зміни ціль фокусу для «${task.title}».`} onClose={onClose} returnFocusRef={returnFocusRef} icon={<Clock3 size={20}/>}>
+    <form className="modal-form time-edit-form" noValidate onSubmit={submit}>
+      <fieldset>
+        <legend>Ціль фокусу</legend>
+        <div className="target-options">
+          {presets.map((preset) => <button type="button" className={targetMinutes === preset ? "selected" : ""} onClick={() => selectTarget(preset)} key={preset}>{preset} хв</button>)}
+          <label><input autoFocus aria-label="Ціль фокусу у хвилинах" aria-invalid={Boolean(error)} aria-describedby={error ? "task-time-error" : "task-time-note"} type="number" min="1" max="240" step="1" value={value} onChange={(event) => { setValue(event.target.value); setError(""); }}/><span>хв</span></label>
+        </div>
+      </fieldset>
+      <p className="time-edit-note" id="task-time-note">Нова ціль застосовується до наступного запуску. Уже зарахований час і поточний відлік не зміняться.</p>
+      {error && <p className="modal-field-error" id="task-time-error" role="alert">{error}</p>}
+      <div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">Зберегти час</button></div>
+    </form>
+  </Modal>;
+}
+
+function Modal({ title, subtitle, onClose, children, returnFocusRef, icon }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode; returnFocusRef: React.RefObject<HTMLElement | null>; icon?: React.ReactNode }) {
   const dialogRef = useRef<HTMLElement>(null);
   const titleId = useId();
   const descriptionId = useId();
   useDialogFocus(dialogRef, onClose, undefined, returnFocusRef);
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}><button className="modal-close" onClick={onClose} aria-label="Закрити"><X size={19}/></button><div className="modal-heading"><span className="modal-icon"><Plus size={20}/></span><div><h2 id={titleId}>{title}</h2><p id={descriptionId}>{subtitle}</p></div></div>{children}</section></div>;
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}><button className="modal-close" onClick={onClose} aria-label="Закрити"><X size={19}/></button><div className="modal-heading"><span className="modal-icon">{icon ?? <Plus size={20}/>}</span><div><h2 id={titleId}>{title}</h2><p id={descriptionId}>{subtitle}</p></div></div>{children}</section></div>;
 }
 
 function StatCard({ label, value, delta }: { label: string; value: string; delta: string }) {

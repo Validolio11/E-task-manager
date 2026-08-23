@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addCalendarDays, AppSnapshot, experienceForHours, focusStage, FocusSession, sanitizeSnapshot, sessionDuration, totalInside, trackedTimeByTask } from "./domain";
+import { addCalendarDays, AppSnapshot, DEFAULT_TASK_ICON_KEY, experienceForHours, focusStage, FocusSession, isTaskTargetMinutes, normalizeTaskIconKey, removeTaskWithSessions, sanitizeSnapshot, sessionDuration, setTaskTargetMinutes, TASK_ICON_KEYS, totalInside, trackedTimeByTask } from "./domain";
 
 const session = (startedAt: string, endedAt: string | null, durationMs: number | null = null): FocusSession => ({
   id: "session-1",
@@ -76,14 +76,70 @@ describe("experience levels", () => {
 const validBackup = (): AppSnapshot => ({
   schemaVersion: 1,
   projects: [{ id: "project-1", title: "Проєкт", description: "", skill: "Інше", status: "active", sortOrder: 0, createdAt: "2026-08-18T10:00:00.000Z", updatedAt: "2026-08-18T10:00:00.000Z" }],
-  tasks: [{ id: "task-1", projectId: "project-1", title: "Задача", status: "todo", targetMinutes: 5, sortOrder: 0, createdAt: "2026-08-18T10:00:00.000Z", updatedAt: "2026-08-18T10:00:00.000Z", completedAt: null }],
+  tasks: [{ id: "task-1", projectId: "project-1", title: "Задача", status: "todo", targetMinutes: 5, iconKey: "list-todo", sortOrder: 0, createdAt: "2026-08-18T10:00:00.000Z", updatedAt: "2026-08-18T10:00:00.000Z", completedAt: null }],
   sessions: [],
-  settings: { theme: "system", accent: "lime", compact: false, focusPresets: [5, 10], soundEnabled: true, aiProvider: "openai", openaiModel: "gpt-5-mini", geminiModel: "gemini-2.5-flash", aiIncludeSessionHistory: true, aiConsentAccepted: false },
+  settings: { theme: "system", accent: "lime", compact: false, focusPresets: [5, 10], soundEnabled: true, aiProvider: "openai", openaiModel: "gpt-5-mini", geminiModel: "gemini-2.5-flash", aiIncludeSessionHistory: true, aiConsentAccepted: false, aiConsentVersion: 0 },
+});
+
+describe("task icon catalog", () => {
+  it("keeps every supported key and falls back for untrusted values", () => {
+    expect(TASK_ICON_KEYS.map(normalizeTaskIconKey)).toEqual(TASK_ICON_KEYS);
+    expect(normalizeTaskIconKey("arbitrary-svg")).toBe(DEFAULT_TASK_ICON_KEY);
+    expect(normalizeTaskIconKey(null)).toBe(DEFAULT_TASK_ICON_KEY);
+  });
+});
+
+describe("task focus target", () => {
+  it("accepts only whole minutes within the supported range", () => {
+    expect([1, 5, 60, 240].every(isTaskTargetMinutes)).toBe(true);
+    expect([0, -1, 1.5, 241, Number.NaN, Number.POSITIVE_INFINITY].some(isTaskTargetMinutes)).toBe(false);
+  });
+
+  it("updates the task target without changing tracked or active sessions", () => {
+    const backup = validBackup();
+    backup.sessions = [session("2026-08-18T12:00:00.000Z", null)];
+    const next = setTaskTargetMinutes(backup, "task-1", 60, "2026-08-18T12:03:00.000Z");
+    expect(next.tasks[0].targetMinutes).toBe(60);
+    expect(next.tasks[0].updatedAt).toBe("2026-08-18T12:03:00.000Z");
+    expect(next.sessions).toBe(backup.sessions);
+    expect(next.sessions[0]).toEqual(backup.sessions[0]);
+  });
+
+  it("rejects an invalid target or missing task", () => {
+    expect(() => setTaskTargetMinutes(validBackup(), "task-1", 0, new Date().toISOString())).toThrow(/від 1 до 240/);
+    expect(() => setTaskTargetMinutes(validBackup(), "missing", 15, new Date().toISOString())).toThrow(/не знайдено/);
+  });
+});
+
+describe("task deletion", () => {
+  it("removes the task and all its sessions without touching unrelated data", () => {
+    const backup = validBackup();
+    backup.tasks.push({ ...backup.tasks[0], id: "task-2", title: "Інша задача" });
+    backup.sessions = [
+      session("2026-08-18T12:00:00.000Z", null),
+      { ...session("2026-08-18T13:00:00.000Z", "2026-08-18T13:05:00.000Z", 300_000), id: "session-2" },
+      { ...session("2026-08-18T14:00:00.000Z", "2026-08-18T14:02:00.000Z", 120_000), id: "session-3", taskId: "task-2" },
+    ];
+    const next = removeTaskWithSessions(backup, "task-1");
+    expect(next.tasks.map((task) => task.id)).toEqual(["task-2"]);
+    expect(next.sessions.map((item) => item.id)).toEqual(["session-3"]);
+    expect(next.projects).toBe(backup.projects);
+  });
 });
 
 describe("backup validation", () => {
   it("accepts a consistent snapshot", () => {
     expect(sanitizeSnapshot(validBackup()).tasks[0].title).toBe("Задача");
+  });
+
+  it("adds a safe icon to legacy tasks and replaces unknown icon keys", () => {
+    const legacy = validBackup() as unknown as { tasks: Array<Record<string, unknown>> };
+    delete legacy.tasks[0].iconKey;
+    expect(sanitizeSnapshot(legacy).tasks[0].iconKey).toBe(DEFAULT_TASK_ICON_KEY);
+
+    const unsafe = validBackup() as unknown as { tasks: Array<Record<string, unknown>> };
+    unsafe.tasks[0].iconKey = "<svg onload=alert(1)>";
+    expect(sanitizeSnapshot(unsafe).tasks[0].iconKey).toBe(DEFAULT_TASK_ICON_KEY);
   });
 
   it("rejects orphan tasks before replacing local data", () => {
@@ -108,5 +164,6 @@ describe("backup validation", () => {
     expect(result.settings.openaiModel).toBe("gpt-5-mini");
     expect(result.settings.aiIncludeSessionHistory).toBe(true);
     expect(result.settings.aiConsentAccepted).toBe(false);
+    expect(result.settings.aiConsentVersion).toBe(0);
   });
 });

@@ -195,9 +195,13 @@ fn assistant_schema() -> Value {
                         "projectTitle": { "type": ["string", "null"] },
                         "description": { "type": ["string", "null"] },
                         "skill": { "type": ["string", "null"] },
-                        "targetMinutes": { "type": ["integer", "null"] }
+                        "targetMinutes": { "type": ["integer", "null"] },
+                        "iconKey": {
+                            "type": ["string", "null"],
+                            "enum": ["list-todo", "code", "design", "writing", "research", "learning", "communication", "planning", "document", "analysis", "marketing", "build", "health", "fitness", "creative", "video", null]
+                        }
                     },
-                    "required": ["type", "title", "taskId", "projectId", "projectTitle", "description", "skill", "targetMinutes"],
+                    "required": ["type", "title", "taskId", "projectId", "projectTitle", "description", "skill", "targetMinutes", "iconKey"],
                     "additionalProperties": false
                 }
             }
@@ -211,18 +215,7 @@ async fn request_openai(client: &reqwest::Client, request: &AiRequest, api_key: 
     let response = client
         .post("https://api.openai.com/v1/responses")
         .bearer_auth(api_key)
-        .json(&json!({
-            "model": request.model.trim(),
-            "input": request.prompt,
-            "text": {
-                "format": {
-                    "type": "json_schema",
-                    "name": "etask_assistant",
-                    "strict": true,
-                    "schema": assistant_schema()
-                }
-            }
-        }))
+        .json(&openai_request_body(request))
         .send()
         .await
         .map_err(|error| network_error("OpenAI", &error))?;
@@ -243,6 +236,21 @@ async fn request_openai(client: &reqwest::Client, request: &AiRequest, api_key: 
         .and_then(Value::as_str)
         .map(str::to_owned)
         .ok_or_else(|| "OpenAI не повернув текстову відповідь.".into())
+}
+
+fn openai_request_body(request: &AiRequest) -> Value {
+    json!({
+        "model": request.model.trim(),
+        "input": request.prompt,
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "etask_assistant",
+                "strict": true,
+                "schema": assistant_schema()
+            }
+        }
+    })
 }
 
 async fn request_gemini(client: &reqwest::Client, request: &AiRequest, api_key: &str) -> Result<String, String> {
@@ -291,6 +299,22 @@ fn network_error(provider: &str, error: &reqwest::Error) -> String {
 
 fn api_error(provider: &str, status: u16, body: &Value) -> String {
     let provider = if provider.eq_ignore_ascii_case("openai") { "OpenAI" } else { "Gemini" };
+    let message = body.pointer("/error/message").and_then(Value::as_str).unwrap_or("провайдер відхилив запит");
+    let parameter = body.pointer("/error/param").and_then(Value::as_str).unwrap_or_default();
+    let normalized_message = message.to_ascii_lowercase();
+
+    if provider == "OpenAI"
+        && status == 400
+        && (parameter.eq_ignore_ascii_case("prompt_cache_retention")
+            || normalized_message.contains("prompt_cache_retention"))
+    {
+        return "OpenAI: ця модель не підтримує застаріле кешування. Онови E-task до останньої версії та повтори запит.".into();
+    }
+
+    if provider == "OpenAI" && status == 400 && normalized_message.contains("not supported on this model") {
+        return "OpenAI: вибрана модель не підтримує цей формат запиту. Обери іншу модель у Налаштуваннях.".into();
+    }
+
     match status {
         401 | 403 => format!("{provider}: API-ключ недійсний або не має доступу до цієї моделі."),
         402 => format!("{provider}: для API потрібно поповнити баланс."),
@@ -298,20 +322,104 @@ fn api_error(provider: &str, status: u16, body: &Value) -> String {
         408 => format!("{provider}: запит тривав надто довго. Спробуй ще раз."),
         429 => format!("{provider}: перевищено ліміт запитів або закінчився доступний баланс."),
         500..=599 => format!("{provider} тимчасово недоступний. Повтори запит трохи пізніше."),
-        _ => {
-            let message = body.pointer("/error/message").and_then(Value::as_str).unwrap_or("провайдер відхилив запит");
-            format!("{provider}: {message}")
+        _ => format!("{provider}: {message}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn openai_request(model: &str) -> AiRequest {
+        AiRequest {
+            request_id: "test-request".into(),
+            provider: "openai".into(),
+            model: model.into(),
+            prompt: "Допоможи спланувати день".into(),
         }
+    }
+
+    #[test]
+    fn openai_request_uses_only_supported_top_level_fields() {
+        for model in ["gpt-5-mini", "gpt-5.6"] {
+            let body = openai_request_body(&openai_request(model));
+            let mut keys = body
+                .as_object()
+                .expect("OpenAI request body must be an object")
+                .keys()
+                .map(String::as_str)
+                .collect::<Vec<_>>();
+            keys.sort_unstable();
+
+            assert_eq!(keys, ["input", "model", "text"]);
+            assert_eq!(body.get("model").and_then(Value::as_str), Some(model));
+            assert!(body.get("prompt_cache_retention").is_none());
+        }
+    }
+
+    #[test]
+    fn explains_deprecated_prompt_cache_parameter_in_ukrainian() {
+        let body = json!({
+            "error": {
+                "message": "prompt_cache_retention is not supported on this model",
+                "param": "prompt_cache_retention"
+            }
+        });
+
+        assert_eq!(
+            api_error("OpenAI", 400, &body),
+            "OpenAI: ця модель не підтримує застаріле кешування. Онови E-task до останньої версії та повтори запит."
+        );
+    }
+
+    #[test]
+    fn keeps_rate_limit_message_even_if_body_mentions_cache_parameter() {
+        let body = json!({
+            "error": {
+                "message": "Rate limit reached while handling prompt_cache_retention"
+            }
+        });
+
+        assert_eq!(
+            api_error("OpenAI", 429, &body),
+            "OpenAI: перевищено ліміт запитів або закінчився доступний баланс."
+        );
+    }
+
+    #[test]
+    fn assistant_schema_restricts_task_icons_to_the_local_catalog() {
+        let schema = assistant_schema();
+        let icon_values = schema
+            .pointer("/properties/actions/items/properties/iconKey/enum")
+            .and_then(Value::as_array)
+            .expect("iconKey enum must exist");
+        let required = schema
+            .pointer("/properties/actions/items/required")
+            .and_then(Value::as_array)
+            .expect("action required fields must exist");
+
+        assert!(icon_values.iter().any(|value| value.as_str() == Some("video")));
+        assert!(icon_values.iter().any(Value::is_null));
+        assert!(!icon_values.iter().any(|value| value.as_str() == Some("remote-icon-url")));
+        assert!(required.iter().any(|value| value.as_str() == Some("iconKey")));
     }
 }
 
 pub fn run() {
-    let migrations = vec![Migration {
-        version: 1,
-        description: "create core E-task tables",
-        sql: include_str!("../migrations/0001_init.sql"),
-        kind: MigrationKind::Up,
-    }];
+    let migrations = vec![
+        Migration {
+            version: 1,
+            description: "create core E-task tables",
+            sql: include_str!("../migrations/0001_init.sql"),
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 2,
+            description: "add task icon key",
+            sql: include_str!("../migrations/0002_add_task_icon.sql"),
+            kind: MigrationKind::Up,
+        },
+    ];
 
     tauri::Builder::default()
         .manage(AiRequestState::default())

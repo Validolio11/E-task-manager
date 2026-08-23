@@ -1,6 +1,6 @@
 # E-task — Product Specification
 
-Repository mirror updated: 2026-08-18
+Repository mirror updated: 2026-08-24
 
 This document is the persistent product contract available directly inside the repository. Codex must be able to implement E-task from this document plus `DECISIONS.md` without relying on the original ChatGPT conversation or external Notion access.
 
@@ -39,6 +39,7 @@ Actions:
 - **Stop** — ends the current session without completing the task. The task remains In progress. Stopped/paused time is not counted as work time.
 - **Completed** — ends the active session, records work time and marks the task completed.
 - **Delete** — requires user-facing confirmation. Deleting a task also removes that task’s tracked time from task/project/global aggregates.
+- Task rows provide a custom actions menu, available from a visible control and right-click. “Edit time” changes the focus target for future sessions without rewriting accumulated work time or an already active session.
 
 ## 4. Focus timer
 
@@ -124,7 +125,7 @@ Home is the central experience.
 Core content:
 1. **Current Task hero card** — strongest visual focus, with task name, active timer, target, progress/overtime state, Stop, Completed and Delete.
 2. **Resume / Continue** card — last unfinished task and accumulated time.
-3. **Next Tasks** — a few upcoming tasks with target time; clicking task content selects the next candidate, while a separate Play control starts timing.
+3. **Next Tasks** — a few upcoming tasks with target time; clicking task content selects the next candidate, a separate Play control starts timing, and the custom task menu edits the target or requests confirmed deletion.
 4. Compact summary cards — Today / This Week / This Month / This Year / All Time.
 5. Project Progress.
 6. Skills / Experience summary.
@@ -172,6 +173,9 @@ Task record also stores:
 - status;
 - accumulated work time;
 - order / next position.
+- one semantic icon key from the built-in catalog; existing tasks without a key use the neutral task icon.
+
+For AI-proposed tasks, E-task asks the selected model to choose the icon from the built-in catalog using the task title and the linked project’s title, description and skill. The proposed icon remains editable before confirmation. Provider output must never supply arbitrary SVG, HTML, CSS, URLs or component names.
 
 Priority and deadline are **not** part of the current minimal v1 creation flow.
 
@@ -324,6 +328,7 @@ AI assistant:
 - stored secret values never return to the renderer; the interface receives only whether each provider is configured;
 - model name selection;
 - clear disclosure of which local context is sent to the selected provider;
+- project descriptions may be sent so the assistant can understand the project and choose task icons; a changed disclosure requires renewed consent;
 - explicit consent before the first AI request and an option to exclude raw focus-session history;
 - connection testing that validates the saved key and selected model without generating a chat response;
 - analysis of tasks, projects and focus history;
