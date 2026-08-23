@@ -4,6 +4,12 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-23 — AI navigation placement
+
+- The primary navigation remains limited to Home, Projects, Analytics, Skills and Settings.
+- AI Assistant remains a supported focused page but is opened from a secondary top-bar action rather than becoming a sixth primary destination.
+- The secondary AI action must remain keyboard-accessible and show a clear active state while the AI page is open.
+
 ## 2026-08-23 — Exact logo asset and reference fidelity
 
 - The approved E-task application icon is the exact white-background variant from the user-provided logo reference: black stylized `E` with the supplied blue-to-violet checkmark.

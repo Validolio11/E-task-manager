@@ -2,6 +2,15 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.10
+
+- Added historical focus analytics for week, month and year with period navigation and comparisons.
+- Improved the active timer with positive overtime feedback and timestamp-driven focus-stage progress.
+- Made the activity heatmap usable with pointer, touch and keyboard input while exposing exact daily values.
+- Improved compact-window KPI layouts, typography and light-theme surface contrast.
+- Kept the five-section primary navigation focused and moved AI Assistant to an accessible secondary top-bar action.
+- Added regression tests for focus presentation, calendar period boundaries, leap-day buckets and sessions crossing period boundaries.
+
 ## v0.2.9
 
 - Replaced the application branding with the exact approved white-background E-task logo variant and regenerated the Windows/Tauri icons.
@@ -60,7 +69,7 @@ The matching public key is embedded in `tauri.conf.json`. Existing app installat
 
 ## Publishing a release
 
-1. Run `npm run version:set -- 0.2.0` to update all three version fields safely.
+1. Run `npm run version:set -- 0.2.0` to update all four version files safely.
 2. Commit the version change.
 3. Create and push a tag, for example `v0.2.6`, or push the version commit to `main` with `[release]` in its commit message.
 

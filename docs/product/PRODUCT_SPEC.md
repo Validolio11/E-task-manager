@@ -147,6 +147,8 @@ Main sections:
 - Skills
 - Settings
 
+AI Assistant is available as a secondary top-bar action and is not a sixth primary navigation section.
+
 Do not add Calendar, Notes, Goals, Meetings, generic Reports, or an Integrations page unless a newer confirmed product decision explicitly adds one.
 
 ## 8. Projects and task creation

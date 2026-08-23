@@ -4,6 +4,7 @@ import {
   BriefcaseBusiness,
   Check,
   CheckCircle2,
+  ChevronLeft,
   ChevronRight,
   CirclePlay,
   Clock3,
@@ -45,13 +46,14 @@ import { AiSettings } from "./features/ai/AiSettings";
 import { WindowTitlebar } from "./components/WindowTitlebar";
 import { ConfirmDialog, ConfirmOptions, RequestConfirmation } from "./components/ConfirmDialog";
 import { useFocusStore } from "./useFocusStore";
+import { AnalyticsPeriod, analyticsPeriodLabel, buildAnalyticsPeriod } from "./analytics";
+import { focusStageProgress } from "./focusPresentation";
 
 const navItems: { key: ViewKey; label: string; icon: typeof Home }[] = [
   { key: "home", label: "Головна", icon: Home },
   { key: "projects", label: "Проєкти", icon: BriefcaseBusiness },
   { key: "analytics", label: "Аналітика", icon: BarChart3 },
   { key: "skills", label: "Навички", icon: Trophy },
-  { key: "ai", label: "AI-помічник", icon: Bot },
   { key: "settings", label: "Налаштування", icon: Settings },
 ];
 
@@ -107,6 +109,7 @@ function App() {
         </nav>
 
         <div className="topbar-actions">
+          <button className={`ai-shortcut ${view === "ai" ? "active" : ""}`} onClick={() => setView("ai")} aria-label="Відкрити AI-помічник" aria-current={view === "ai" ? "page" : undefined} title="AI-помічник"><Bot size={18}/><span>AI</span></button>
           <button className="quick-add" onClick={openQuickAdd}><Plus size={18} strokeWidth={2.6}/> <span>Додати задачу</span></button>
         </div>
       </header>
@@ -159,6 +162,8 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
   const elapsed = activeSession ? sessionDuration(activeSession, now) : 0;
   const targetMs = (activeSession?.targetMinutes ?? activeTask?.targetMinutes ?? 5) * 60_000;
   const gaugePercent = targetMs ? Math.round((elapsed / targetMs) * 100) : 0;
+  const gaugeDegrees = Math.min(360, gaugePercent * 3.6);
+  const stageProgress = focusStageProgress(elapsed);
   const resumeTask = data.tasks
     .filter((task) => task.status === "in_progress" && task.id !== activeTask?.id)
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
@@ -186,11 +191,11 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
                 <div className="timer">{formatTimer(elapsed)}</div>
                 <div className="stage-label">{focusStage(elapsed)}{elapsed > targetMs ? ` · +${formatTimer(elapsed - targetMs)} після цілі` : ""}</div>
               </div>
-              <div className="gauge" style={{ background: `conic-gradient(var(--accent) 0deg ${Math.min(360, gaugePercent * 3.6)}deg, #44473e ${Math.min(360, gaugePercent * 3.6)}deg 360deg)` }} aria-label={`${gaugePercent} відсотків цілі`}>
-                <div className="gauge-inner"><strong>{gaugePercent}%</strong><span>від цілі</span></div>
+              <div className={`gauge ${gaugePercent > 100 ? "overtime" : ""}`} style={{ background: `conic-gradient(var(--accent) 0deg ${gaugeDegrees}deg, #44473e ${gaugeDegrees}deg 360deg)` }} aria-label={`${gaugePercent} відсотків цілі${gaugePercent > 100 ? ", робота продовжується" : ""}`}>
+                <div className="gauge-inner"><strong>{gaugePercent > 100 ? `+${formatTimer(elapsed - targetMs)}` : `${gaugePercent}%`}</strong><span>{gaugePercent > 100 ? "у потоці" : "від цілі"}</span></div>
               </div>
             </div>
-            <div className="stage-track"><span/><span/><span/><span/></div>
+            <div className="stage-track" aria-label={`Поточний етап: ${focusStage(elapsed)}`}>{stageProgress.map((progress, index) => <span className={progress > 0 ? "reached" : ""} key={index}><i style={{ width: `${progress}%` }}/></span>)}</div>
             <div className="stage-scale"><span>0</span><span>5 хв</span><span>15 хв</span><span>30 хв</span><span>+</span></div>
             <div className="task-actions">
               <button className="action secondary" onClick={store.stopActive}><Pause size={17}/> Зупинити</button>
@@ -319,16 +324,23 @@ function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store;
 }
 
 function AnalyticsPage({ store }: { store: Store }) {
+  const [period, setPeriod] = useState<AnalyticsPeriod>("week");
+  const [periodAnchor, setPeriodAnchor] = useState(() => store.now);
+  const [followsCurrentPeriod, setFollowsCurrentPeriod] = useState(true);
+  const [selectedHeatmapDetail, setSelectedHeatmapDetail] = useState<string | null>(null);
+  useEffect(() => { if (followsCurrentPeriod) setPeriodAnchor(store.now); }, [followsCurrentPeriod, store.now]);
   const stats = buildStats(store.data.sessions, store.now);
-  const weekly = buildWeek(store.data.sessions, store.now);
+  const periodSummary = buildAnalyticsPeriod(store.data.sessions, period, periodAnchor, store.now);
+  const currentPeriodStart = buildAnalyticsPeriod(store.data.sessions, period, store.now, store.now).start;
   const heatmap = buildHeatmap(store.data.sessions, store.now);
   const sessions = [...store.data.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 8);
   return <section className="page page-enter">
-    <div className="page-title"><div><span className="eyebrow-dark">БЕЗ ОЦІНЮВАННЯ</span><h1>Аналітика фокусу</h1><p>Лише фактичний час і м’які тенденції.</p></div></div>
+    <div className="page-title analytics-title"><div><span className="eyebrow-dark">БЕЗ ОЦІНЮВАННЯ</span><h1>Аналітика фокусу</h1><p>Лише фактичний час і м’які тенденції.</p></div><div className="analytics-periods" aria-label="Період аналітики">{(["week", "month", "year"] as AnalyticsPeriod[]).map((item) => <button className={period === item ? "active" : ""} onClick={() => { setPeriod(item); setPeriodAnchor(store.now); setFollowsCurrentPeriod(true); }} aria-pressed={period === item} key={item}>{analyticsPeriodLabel(item)}</button>)}</div></div>
     <section className="stats-row analytics-stats">{stats.map((stat) => <StatCard key={stat.label} {...stat}/>)}</section>
+    <article className="card period-summary"><div><span className="eyebrow-dark">ОБРАНИЙ ПЕРІОД</span><strong>{periodSummary.label}</strong><small>{periodSummary.deltaLabel}</small></div><div className="period-total"><span>Сфокусовано</span><strong>{formatDuration(periodSummary.total)}</strong></div><div className="period-navigation"><button onClick={() => { setFollowsCurrentPeriod(false); setPeriodAnchor(periodSummary.previousAnchor); }} aria-label="Попередній період"><ChevronLeft size={18}/></button><button onClick={() => { setFollowsCurrentPeriod(true); setPeriodAnchor(store.now); }} disabled={periodSummary.isCurrent}>Сьогодні</button><button onClick={() => { const next = periodSummary.nextAnchor; setPeriodAnchor(next); setFollowsCurrentPeriod(next >= currentPeriodStart); }} disabled={periodSummary.isCurrent} aria-label="Наступний період"><ChevronRight size={18}/></button></div></article>
     <div className="analytics-layout">
-      <article className="card analytics-card analytics-large"><div className="card-heading"><span>ПОТОЧНИЙ ТИЖДЕНЬ</span><span>{formatDuration(weekly.reduce((sum, day) => sum + day.value, 0))}</span></div><WeekBars days={weekly}/></article>
-      <article className="card heatmap-card"><div className="card-heading"><span>АКТИВНІСТЬ · 12 ТИЖНІВ</span><span>{heatmap.filter((day) => day.value > 0).length} активних днів</span></div><div className="heatmap" aria-label="Карта активності за 12 тижнів">{heatmap.map((day) => <span role="img" key={day.date} title={`${day.date}: ${formatDuration(day.value)}`} aria-label={`${day.date}: ${formatDuration(day.value)}`} data-level={day.level}/>)}</div><div className="heatmap-legend" aria-label="Інтенсивність активності"><span>0 хв</span><i data-level="0" aria-hidden="true"/><i data-level="1" aria-hidden="true"/><i data-level="2" aria-hidden="true"/><i data-level="3" aria-hidden="true"/><i data-level="4" aria-hidden="true"/><span>більше часу</span></div><p className="chart-help">Кожна клітинка — один день. Наведи курсор, щоб побачити точний час.</p></article>
+      <article className="card analytics-card analytics-large"><div className="card-heading"><span>{analyticsPeriodLabel(period).toUpperCase()} · ДИНАМІКА</span><span>{formatDuration(periodSummary.total)}</span></div><WeekBars days={periodSummary.buckets}/></article>
+      <article className="card heatmap-card"><div className="card-heading"><span>АКТИВНІСТЬ · 12 ТИЖНІВ</span><span>{heatmap.filter((day) => day.value > 0).length} активних днів</span></div><div className="heatmap" aria-label="Карта активності за 12 тижнів">{heatmap.map((day, index) => { const detail = `${day.date}: ${formatDuration(day.value)}`; return <button type="button" key={day.date} tabIndex={day.value > 0 || index === 0 ? 0 : -1} aria-label={detail} aria-pressed={selectedHeatmapDetail === detail} onFocus={() => setSelectedHeatmapDetail(detail)} onClick={() => setSelectedHeatmapDetail(detail)} data-tooltip={detail} data-level={day.level}/>; })}</div><div className="heatmap-legend" aria-label="Інтенсивність активності"><span>0 хв</span><i data-level="0" aria-hidden="true"/><i data-level="1" aria-hidden="true"/><i data-level="2" aria-hidden="true"/><i data-level="3" aria-hidden="true"/><i data-level="4" aria-hidden="true"/><span>більше часу</span></div><p className="heatmap-detail" aria-live="polite">{selectedHeatmapDetail ?? "Обери день курсором, дотиком або клавіатурою"}</p><p className="chart-help">Кожна клітинка — один день. Точний час доступний для курсора, дотику й клавіатури.</p></article>
       <article className="card history-card"><div className="card-heading"><span>ОСТАННІ СЕСІЇ</span><span>{store.data.sessions.length}</span></div>{sessions.length ? <div className="history-list">{sessions.map((session) => {
         const task = store.data.tasks.find((item) => item.id === session.taskId);
         const project = projectOf(task, store.data.projects);
@@ -438,7 +450,7 @@ function StatCard({ label, value, delta }: { label: string; value: string; delta
 
 function WeekBars({ days }: { days: { label: string; value: number }[] }) {
   const max = Math.max(...days.map((day) => day.value), 1);
-  return <div className="bars" aria-label="Час фокусу за тиждень">{days.map((day) => <div className="bar-col" key={day.label}><strong className="bar-value">{formatDuration(day.value, true)}</strong><div className="bar-track" title={`${day.label}: ${formatDuration(day.value)}`} aria-label={`${day.label}: ${formatDuration(day.value)}`}><div className="bar-fill" style={{ height: `${Math.max(day.value ? 8 : 0, (day.value / max) * 100)}%` }}/></div><small>{day.label}</small></div>)}</div>;
+  return <div className="bars" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(0, 1fr))` }} aria-label="Динаміка часу фокусу">{days.map((day) => <div className="bar-col" key={day.label}><strong className="bar-value">{formatDuration(day.value, true)}</strong><div className="bar-track" title={`${day.label}: ${formatDuration(day.value)}`} aria-label={`${day.label}: ${formatDuration(day.value)}`}><div className="bar-fill" style={{ height: `${Math.max(day.value ? 8 : 0, (day.value / max) * 100)}%` }}/></div><small>{day.label}</small></div>)}</div>;
 }
 
 function ProjectSummary({ project, data, trackedMsByTask }: { project: Project; data: Store["data"]; trackedMsByTask: Map<string, number> }) {
