@@ -170,7 +170,12 @@ export function addCalendarDays(timestamp: number, days: number) {
 
 export function durationInside(session: FocusSession, from: number, to: number, now = Date.now()) {
   const start = Date.parse(session.startedAt);
-  const end = session.endedAt ? Date.parse(session.endedAt) : now;
+  // A finalized duration is the canonical value. Deriving the end solely from
+  // wall-clock timestamps can make analytics disagree with task totals after a
+  // system clock correction or a restored backup.
+  const end = session.endedAt && session.durationMs !== null
+    ? start + Math.max(0, session.durationMs)
+    : session.endedAt ? Date.parse(session.endedAt) : now;
   return Math.max(0, Math.min(end, to) - Math.max(start, from));
 }
 

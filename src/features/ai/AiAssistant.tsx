@@ -9,7 +9,6 @@ type TaskInput = Pick<Task, "title" | "projectId" | "targetMinutes">;
 
 interface Props {
   data: AppSnapshot;
-  now: number;
   createProject: (input: ProjectInput) => string;
   createTask: (input: TaskInput) => string;
   updateTask: (id: string, input: TaskInput) => void;
@@ -59,7 +58,7 @@ function actionSummary(actions: AiAction[]) {
   return groups.filter(([count]) => count > 0).map(([count, label]) => `${count} ${label}`).join(" · ");
 }
 
-export function AiAssistant({ data, now, createProject, createTask, updateTask, completeTask, updateSettings, onOpenSettings, requestConfirmation }: Props) {
+export function AiAssistant({ data, createProject, createTask, updateTask, completeTask, updateSettings, onOpenSettings, requestConfirmation }: Props) {
   const provider = data.settings.aiProvider;
   const model = provider === "openai" ? data.settings.openaiModel : data.settings.geminiModel;
   const [keyStatus, setKeyStatus] = useState<AiKeyStatus | null>(null);
@@ -192,7 +191,8 @@ export function AiAssistant({ data, now, createProject, createTask, updateTask, 
     setError(null);
     setRetryContext({ question, history });
     try {
-      const reply = await askAi(provider, model, buildAiPrompt(data, now, history, question), requestId);
+      const requestNow = Date.now();
+      const reply = await askAi(provider, model, buildAiPrompt(data, requestNow, history, question), requestId);
       persistMessages([...currentMessages, { id: crypto.randomUUID(), role: "assistant", content: reply.message, actions: reply.actions }]);
       setRetryContext(null);
     } catch (reason) {

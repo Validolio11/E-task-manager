@@ -37,6 +37,14 @@ describe("focus timer domain", () => {
     expect(totalInside([crossingMidnight], from, to)).toBe(600_000);
   });
 
+  it("uses the finalized duration consistently in analytics", () => {
+    const finished = session("2026-08-18T12:00:00.000Z", "2026-08-18T12:05:00.000Z", 299_500);
+    const from = Date.parse("2026-08-18T12:00:00.000Z");
+    const to = Date.parse("2026-08-18T13:00:00.000Z");
+    expect(totalInside([finished], from, to)).toBe(299_500);
+    expect(totalInside([finished], from + 120_000, to)).toBe(179_500);
+  });
+
   it("moves between local calendar days without assuming a fixed day length", () => {
     const start = new Date(2026, 0, 31).getTime();
     const next = new Date(addCalendarDays(start, 1));

@@ -2,6 +2,15 @@
 
 E-task uses SemVer (`MAJOR.MINOR.PATCH`). Keep the version synchronized in `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, and `src-tauri/tauri.conf.json`.
 
+## v0.2.11
+
+- Made selecting a task separate from starting its timer, with an explicit Play action for queued tasks.
+- Fixed compact-window scaling so the main scrollbar stays on the far-right edge without horizontal overflow.
+- Reduced unnecessary app-wide timer renders while keeping active timers, targets and date-based views current.
+- Kept finalized focus durations consistent across analytics and AI whole-minute summaries.
+- Improved confirmation-dialog keyboard focus, Escape handling, focus restoration and duplicate-submit protection.
+- Added regression coverage for duration calculations, AI minute rounding and task-selection behavior.
+
 ## v0.2.10
 
 - Added historical focus analytics for week, month and year with period navigation and comparisons.

@@ -33,6 +33,7 @@ Task states:
 
 Actions:
 - **Start / Resume** — begins a new focus session.
+- Selecting/clicking task content does not start timing. A session begins only from an explicit Start, Resume or Play control.
 - Only **one task can actively track time at once**.
 - Starting a different task automatically stops the active task and starts the new one.
 - **Stop** — ends the current session without completing the task. The task remains In progress. Stopped/paused time is not counted as work time.
@@ -123,7 +124,7 @@ Home is the central experience.
 Core content:
 1. **Current Task hero card** — strongest visual focus, with task name, active timer, target, progress/overtime state, Stop, Completed and Delete.
 2. **Resume / Continue** card — last unfinished task and accumulated time.
-3. **Next Tasks** — a few upcoming tasks with quick start and target time.
+3. **Next Tasks** — a few upcoming tasks with target time; clicking task content selects the next candidate, while a separate Play control starts timing.
 4. Compact summary cards — Today / This Week / This Month / This Year / All Time.
 5. Project Progress.
 6. Skills / Experience summary.

@@ -21,7 +21,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   addCalendarDays,
   AppSettings,
@@ -37,6 +37,7 @@ import {
   startOfWeek,
   startOfYear,
   Task,
+  taskTrackedMs,
   totalInside,
   ViewKey,
 } from "./domain";
@@ -48,6 +49,8 @@ import { ConfirmDialog, ConfirmOptions, RequestConfirmation } from "./components
 import { useFocusStore } from "./useFocusStore";
 import { AnalyticsPeriod, analyticsPeriodLabel, buildAnalyticsPeriod } from "./analytics";
 import { focusStageProgress } from "./focusPresentation";
+import { useLiveNow, useTrackedMsByTask } from "./useLiveClock";
+import { useDialogFocus } from "./components/useDialogFocus";
 
 const navItems: { key: ViewKey; label: string; icon: typeof Home }[] = [
   { key: "home", label: "Головна", icon: Home },
@@ -75,7 +78,16 @@ function App() {
   const [view, setView] = useState<ViewKey>("home");
   const [modal, setModal] = useState<ModalState>(null);
   const [confirmation, setConfirmation] = useState<ConfirmOptions | null>(null);
-  const requestConfirmation: RequestConfirmation = (options) => setConfirmation(options);
+  const modalReturnFocus = useRef<HTMLElement>(null);
+  const confirmationReturnFocus = useRef<HTMLElement>(null);
+  const openModal = (next: ModalState) => {
+    if (next && document.activeElement instanceof HTMLElement) modalReturnFocus.current = document.activeElement;
+    setModal(next);
+  };
+  const requestConfirmation: RequestConfirmation = (options) => {
+    if (document.activeElement instanceof HTMLElement) confirmationReturnFocus.current = document.activeElement;
+    setConfirmation(options);
+  };
 
   useEffect(() => {
     document.documentElement.dataset.theme = store.data.settings.theme;
@@ -83,7 +95,7 @@ function App() {
     document.documentElement.dataset.compact = String(store.data.settings.compact);
   }, [store.data.settings]);
 
-  const openQuickAdd = () => setModal({ kind: "task" });
+  const openQuickAdd = () => openModal({ kind: "task" });
 
   if (store.loading) {
     return <div className="app-window"><WindowTitlebar/><main className="loading-screen"><img src="/app-icon.png" alt=""/><strong>E-task</strong><span>Відкриваємо локальні дані…</span></main></div>;
@@ -92,7 +104,7 @@ function App() {
   return (
     <div className="app-window">
     <WindowTitlebar/>
-    <main className="app-shell">
+    <main className="app-shell" tabIndex={-1}>
       <header className="topbar">
         <button className="brand" onClick={() => setView("home")} aria-label="Відкрити головну">
           <img className="brand-mark" src="/app-icon.png" alt="" />
@@ -115,17 +127,18 @@ function App() {
       </header>
 
       <div className="app-content">
-        {view === "home" && <HomePage store={store} setView={setView} openModal={setModal} requestConfirmation={requestConfirmation} />}
-        {view === "projects" && <ProjectsPage store={store} openModal={setModal} requestConfirmation={requestConfirmation} />}
+        {view === "home" && <HomePage store={store} setView={setView} openModal={openModal} requestConfirmation={requestConfirmation} />}
+        {view === "projects" && <ProjectsPage store={store} openModal={openModal} requestConfirmation={requestConfirmation} />}
         {view === "analytics" && <AnalyticsPage store={store} />}
         {view === "skills" && <SkillsPage store={store} />}
-        {view === "ai" && <AiAssistant data={store.data} now={store.now} createProject={store.createProject} createTask={store.createTask} updateTask={store.updateTask} completeTask={store.completeTask} updateSettings={store.updateSettings} onOpenSettings={() => setView("settings")} requestConfirmation={requestConfirmation}/>}
+        {view === "ai" && <AiAssistant data={store.data} createProject={store.createProject} createTask={store.createTask} updateTask={store.updateTask} completeTask={store.completeTask} updateSettings={store.updateSettings} onOpenSettings={() => setView("settings")} requestConfirmation={requestConfirmation}/>}
         {view === "settings" && <SettingsPage store={store} requestConfirmation={requestConfirmation} />}
       </div>
 
       {modal?.kind === "project" && (
         <ProjectModal
           project={modal.project}
+          returnFocusRef={modalReturnFocus}
           onClose={() => setModal(null)}
           onSave={(input) => {
             if (modal.project) store.updateProject(modal.project.id, input);
@@ -137,6 +150,7 @@ function App() {
       {modal?.kind === "task" && (
         <TaskModal
           task={modal.task}
+          returnFocusRef={modalReturnFocus}
           initialProjectId={modal.projectId}
           projects={store.data.projects.filter((project) => project.status === "active")}
           presets={store.data.settings.focusPresets}
@@ -149,7 +163,7 @@ function App() {
           }}
         />
       )}
-      {confirmation && <ConfirmDialog options={confirmation} onClose={() => setConfirmation(null)}/>}
+      {confirmation && <ConfirmDialog options={confirmation} returnFocusRef={confirmationReturnFocus} onClose={() => setConfirmation(null)}/>}
       {store.notice && <div className="toast" role="status"><CheckCircle2 size={18}/><span>{store.notice}</span></div>}
     </main>
     </div>
@@ -157,63 +171,46 @@ function App() {
 }
 
 function HomePage({ store, setView, openModal, requestConfirmation }: { store: Store; setView: (view: ViewKey) => void; openModal: (modal: ModalState) => void; requestConfirmation: RequestConfirmation }) {
-  const { data, activeTask, activeSession, now } = store;
+  const { data, activeTask, activeSession } = store;
+  const [selectedReadyTaskId, setSelectedReadyTaskId] = useState<string | null>(null);
+  const now = useLiveNow(60_000);
+  const trackedMsByTask = useTrackedMsByTask(store.finalizedMsByTask, activeSession, now);
+  const analyticsNow = Math.floor(now / 60_000) * 60_000;
   const activeProject = projectOf(activeTask, data.projects);
-  const elapsed = activeSession ? sessionDuration(activeSession, now) : 0;
-  const targetMs = (activeSession?.targetMinutes ?? activeTask?.targetMinutes ?? 5) * 60_000;
-  const gaugePercent = targetMs ? Math.round((elapsed / targetMs) * 100) : 0;
-  const gaugeDegrees = Math.min(360, gaugePercent * 3.6);
-  const stageProgress = focusStageProgress(elapsed);
-  const resumeTask = data.tasks
+  const resumeTask = useMemo(() => data.tasks
     .filter((task) => task.status === "in_progress" && task.id !== activeTask?.id)
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
-  const nextTasks = data.tasks
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null, [activeTask?.id, data.tasks]);
+  const nextTasks = useMemo(() => data.tasks
     .filter((task) => task.status !== "completed" && task.id !== activeTask?.id && task.id !== resumeTask?.id)
     .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt))
-    .slice(0, 3);
-  const stats = buildStats(data.sessions, now);
-  const weekly = buildWeek(data.sessions, now);
+    .slice(0, 3), [activeTask?.id, data.tasks, resumeTask?.id]);
+  const readyTask = data.tasks.find((task) => task.id === selectedReadyTaskId && task.status !== "completed")
+    ?? resumeTask
+    ?? nextTasks[0]
+    ?? data.tasks.find((task) => task.status !== "completed")
+    ?? null;
+  useEffect(() => {
+    if (selectedReadyTaskId && !nextTasks.some((task) => task.id === selectedReadyTaskId)) {
+      setSelectedReadyTaskId(null);
+    }
+  }, [nextTasks, selectedReadyTaskId]);
+  const stats = useMemo(() => buildStats(data.sessions, analyticsNow), [analyticsNow, data.sessions]);
+  const weekly = useMemo(() => buildWeek(data.sessions, analyticsNow), [analyticsNow, data.sessions]);
   const projectSummary = activeProject && activeProject.id !== INBOX_PROJECT_ID
     ? activeProject
     : data.projects.find((project) => project.status === "active" && project.id !== INBOX_PROJECT_ID) ?? null;
-  const skillSummary = buildSkills(data, store.trackedMsByTask).slice(0, 3);
+  const skillSummary = buildSkills(data, trackedMsByTask).slice(0, 3);
 
   return (
     <section className="dashboard-grid page-enter">
-      <article className={`card current-task-card ${activeTask ? "" : "empty-current"}`}>
-        {activeTask && activeSession ? (
-          <>
-            <div className="eyebrow">ПОТОЧНА ЗАДАЧА · {activeProject?.title.toUpperCase() ?? "БЕЗ ПРОЄКТУ"}</div>
-            <div className="current-task-content">
-              <div className="current-copy">
-                <h1>{activeTask.title}</h1>
-                <p className="muted-on-dark">Ціль {activeSession.targetMinutes} хв · {activeProject?.skill ?? "Інше"}</p>
-                <div className="timer">{formatTimer(elapsed)}</div>
-                <div className="stage-label">{focusStage(elapsed)}{elapsed > targetMs ? ` · +${formatTimer(elapsed - targetMs)} після цілі` : ""}</div>
-              </div>
-              <div className={`gauge ${gaugePercent > 100 ? "overtime" : ""}`} style={{ background: `conic-gradient(var(--accent) 0deg ${gaugeDegrees}deg, #44473e ${gaugeDegrees}deg 360deg)` }} aria-label={`${gaugePercent} відсотків цілі${gaugePercent > 100 ? ", робота продовжується" : ""}`}>
-                <div className="gauge-inner"><strong>{gaugePercent > 100 ? `+${formatTimer(elapsed - targetMs)}` : `${gaugePercent}%`}</strong><span>{gaugePercent > 100 ? "у потоці" : "від цілі"}</span></div>
-              </div>
-            </div>
-            <div className="stage-track" aria-label={`Поточний етап: ${focusStage(elapsed)}`}>{stageProgress.map((progress, index) => <span className={progress > 0 ? "reached" : ""} key={index}><i style={{ width: `${progress}%` }}/></span>)}</div>
-            <div className="stage-scale"><span>0</span><span>5 хв</span><span>15 хв</span><span>30 хв</span><span>+</span></div>
-            <div className="task-actions">
-              <button className="action secondary" onClick={store.stopActive}><Pause size={17}/> Зупинити</button>
-              <button className="action primary" onClick={() => store.completeTask(activeTask.id)}><Check size={17}/> Завершити</button>
-              <button className="action icon" aria-label="Видалити задачу" onClick={() => confirmDeleteTask(activeTask, store, requestConfirmation)}><Trash2 size={17}/></button>
-            </div>
-          </>
-        ) : (
-          <EmptyCurrent data={data} startTask={store.startTask} openModal={openModal} />
-        )}
-      </article>
+      <CurrentTaskCard store={store} activeProject={activeProject} readyTask={readyTask} openModal={openModal} requestConfirmation={requestConfirmation}/>
 
       <article className="card resume-card">
         <div className="card-heading"><span>{activeTask ? "ЗАРАЗ" : "ПРОДОВЖИТИ"}</span><span className="status-pill">{activeTask ? "У фокусі" : resumeTask ? "В процесі" : "Вільно"}</span></div>
         {(activeTask ?? resumeTask) ? (() => {
           const task = activeTask ?? resumeTask!;
           const project = projectOf(task, data.projects);
-          const tracked = store.trackedMsByTask.get(task.id) ?? 0;
+          const tracked = trackedMsByTask.get(task.id) ?? 0;
           return <>
             <h2>{task.title}</h2>
             <p className="subtle">{project?.title ?? "Без проєкту"} · {project?.skill ?? "Інше"}</p>
@@ -230,14 +227,18 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
 
       <article className="card next-card">
         <div className="card-heading"><span>НАСТУПНІ ЗАДАЧІ</span><span className="count-pill">{nextTasks.length}</span></div>
-        {nextTasks.length ? <div className="task-list">
+        {nextTasks.length ? <ul className="task-list">
           {nextTasks.map((task) => {
             const project = projectOf(task, data.projects);
-            return <button className="task-row" key={task.id} onClick={() => store.startTask(task.id)}>
-              <span className="task-dot"/><span className="task-copy"><strong>{task.title}</strong><small>{project?.title} · {task.targetMinutes} хв</small></span><CirclePlay size={18}/>
-            </button>;
+            const selected = selectedReadyTaskId === task.id;
+            return <li className={`task-row ${selected ? "selected" : ""}`} key={task.id}>
+              <button className="task-row-select" onClick={() => setSelectedReadyTaskId(task.id)} aria-pressed={selected} aria-label={`Обрати задачу ${task.title} як наступну`}>
+                <span className="task-dot"/><span className="task-copy"><strong>{task.title}</strong><small>{project?.title} · {task.targetMinutes} хв</small>{selected && <em className="task-selected-label">Обрано наступною</em>}</span>
+              </button>
+              <button className="task-row-start" onClick={() => store.startTask(task.id)} aria-label={activeTask ? `Почати задачу ${task.title} і зупинити поточну` : `Почати задачу ${task.title}, ${task.targetMinutes} хв`} title="Почати відлік"><CirclePlay size={18} aria-hidden="true"/></button>
+            </li>;
           })}
-        </div> : <div className="list-empty"><span>Черга порожня — це теж хороший стан.</span><button onClick={() => openModal({ kind: "task" })}><Plus size={15}/> Додати задачу</button></div>}
+        </ul> : <div className="list-empty"><span>Черга порожня — це теж хороший стан.</span><button onClick={() => openModal({ kind: "task" })}><Plus size={15}/> Додати задачу</button></div>}
         <button className="text-button" onClick={() => setView("projects")}>Переглянути всі задачі <ChevronRight size={15}/></button>
       </article>
 
@@ -252,7 +253,7 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
 
       <article className="card project-card">
         <div className="card-heading"><span>ПРОГРЕС ПРОЄКТУ</span>{projectSummary && <span>{projectProgress(projectSummary.id, data.tasks)}%</span>}</div>
-        {projectSummary ? <ProjectSummary project={projectSummary} data={data} trackedMsByTask={store.trackedMsByTask}/> : <div className="panel-empty"><FolderPlus size={30}/><strong>Створи перший проєкт</strong><button onClick={() => openModal({ kind: "project" })}>Створити</button></div>}
+        {projectSummary ? <ProjectSummary project={projectSummary} data={data} trackedMsByTask={trackedMsByTask}/> : <div className="panel-empty"><FolderPlus size={30}/><strong>Створи перший проєкт</strong><button onClick={() => openModal({ kind: "project" })}>Створити</button></div>}
       </article>
 
       <article className="card skills-card">
@@ -263,8 +264,41 @@ function HomePage({ store, setView, openModal, requestConfirmation }: { store: S
   );
 }
 
-function EmptyCurrent({ data, startTask, openModal }: { data: Store["data"]; startTask: Store["startTask"]; openModal: (modal: ModalState) => void }) {
-  const candidate = data.tasks.find((task) => task.status !== "completed");
+function CurrentTaskCard({ store, activeProject, readyTask, openModal, requestConfirmation }: { store: Store; activeProject: Project | null; readyTask: Task | null; openModal: (modal: ModalState) => void; requestConfirmation: RequestConfirmation }) {
+  const { activeTask, activeSession } = store;
+  const now = useLiveNow(activeSession ? 1000 : null);
+  if (!activeTask || !activeSession) {
+    return <article className="card current-task-card empty-current"><EmptyCurrent candidate={readyTask} startTask={store.startTask} openModal={openModal}/></article>;
+  }
+  const elapsed = sessionDuration(activeSession, now);
+  const targetMs = activeSession.targetMinutes * 60_000;
+  const gaugePercent = targetMs ? Math.round((elapsed / targetMs) * 100) : 0;
+  const gaugeDegrees = Math.min(360, gaugePercent * 3.6);
+  const stageProgress = focusStageProgress(elapsed);
+  return <article className="card current-task-card">
+    <div className="eyebrow">ПОТОЧНА ЗАДАЧА · {activeProject?.title.toUpperCase() ?? "БЕЗ ПРОЄКТУ"}</div>
+    <div className="current-task-content">
+      <div className="current-copy">
+        <h1>{activeTask.title}</h1>
+        <p className="muted-on-dark">Ціль {activeSession.targetMinutes} хв · {activeProject?.skill ?? "Інше"}</p>
+        <div className="timer">{formatTimer(elapsed)}</div>
+        <div className="stage-label">{focusStage(elapsed)}{elapsed > targetMs ? ` · +${formatTimer(elapsed - targetMs)} після цілі` : ""}</div>
+      </div>
+      <div className={`gauge ${gaugePercent > 100 ? "overtime" : ""}`} style={{ background: `conic-gradient(var(--accent) 0deg ${gaugeDegrees}deg, #44473e ${gaugeDegrees}deg 360deg)` }} aria-label={`${gaugePercent} відсотків цілі${gaugePercent > 100 ? ", робота продовжується" : ""}`}>
+        <div className="gauge-inner"><strong>{gaugePercent > 100 ? `+${formatTimer(elapsed - targetMs)}` : `${gaugePercent}%`}</strong><span>{gaugePercent > 100 ? "у потоці" : "від цілі"}</span></div>
+      </div>
+    </div>
+    <div className="stage-track" aria-label={`Поточний етап: ${focusStage(elapsed)}`}>{stageProgress.map((progress, index) => <span className={progress > 0 ? "reached" : ""} key={index}><i style={{ width: `${progress}%` }}/></span>)}</div>
+    <div className="stage-scale"><span>0</span><span>5 хв</span><span>15 хв</span><span>30 хв</span><span>+</span></div>
+    <div className="task-actions">
+      <button className="action secondary" onClick={store.stopActive}><Pause size={17}/> Зупинити</button>
+      <button className="action primary" onClick={() => store.completeTask(activeTask.id)}><Check size={17}/> Завершити</button>
+      <button className="action icon" aria-label="Видалити задачу" onClick={() => confirmDeleteTask(activeTask, store, requestConfirmation)}><Trash2 size={17}/></button>
+    </div>
+  </article>;
+}
+
+function EmptyCurrent({ candidate, startTask, openModal }: { candidate: Task | null; startTask: Store["startTask"]; openModal: (modal: ModalState) => void }) {
   return <div className="empty-current-content">
     <div className="eyebrow">ПОТОЧНА ЗАДАЧА</div>
     <div className="empty-current-icon"><CirclePlay size={32}/></div>
@@ -277,9 +311,21 @@ function EmptyCurrent({ data, startTask, openModal }: { data: Store["data"]; sta
 }
 
 function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store; openModal: (modal: ModalState) => void; requestConfirmation: RequestConfirmation }) {
+  const now = useLiveNow(store.activeSession ? 60_000 : null);
+  const trackedMsByTask = useTrackedMsByTask(store.finalizedMsByTask, store.activeSession, now);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(store.data.projects[0]?.id ?? null);
   const selected = store.data.projects.find((project) => project.id === selectedProjectId) ?? store.data.projects[0] ?? null;
-  const tasks = selected ? store.data.tasks.filter((task) => task.projectId === selected.id) : [];
+  const tasksByProject = useMemo(() => {
+    const groups = new Map<string, Task[]>();
+    for (const task of store.data.tasks) {
+      const group = groups.get(task.projectId);
+      if (group) group.push(task);
+      else groups.set(task.projectId, [task]);
+    }
+    return groups;
+  }, [store.data.tasks]);
+  const tasks = selected ? tasksByProject.get(selected.id) ?? [] : [];
+  const sortedTasks = useMemo(() => [...tasks].sort((a, b) => Number(a.status === "completed") - Number(b.status === "completed") || a.sortOrder - b.sortOrder), [tasks]);
 
   useEffect(() => {
     if (store.data.projects[0] && !store.data.projects.some((project) => project.id === selectedProjectId)) {
@@ -294,7 +340,7 @@ function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store;
       <aside className="card project-sidebar">
         <div className="card-heading"><span>ПРОЄКТИ</span><span className="count-pill">{store.data.projects.length}</span></div>
         <div className="project-nav-list">{store.data.projects.map((project) => {
-          const projectTasks = store.data.tasks.filter((task) => task.projectId === project.id);
+          const projectTasks = tasksByProject.get(project.id) ?? [];
           return <button key={project.id} className={`project-nav-row ${selected?.id === project.id ? "active" : ""}`} onClick={() => setSelectedProjectId(project.id)}>
             <span className="project-avatar">{project.title.slice(0, 1).toUpperCase()}</span><span><strong>{project.title}</strong><small>{projectTasks.filter((task) => task.status !== "completed").length} активних · {project.skill}</small></span><ChevronRight size={16}/>
           </button>;
@@ -302,18 +348,18 @@ function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store;
       </aside>
       {selected && <section className="card project-detail">
         <div className="project-detail-head"><div><span className="skill-badge">{selected.id === INBOX_PROJECT_ID ? "Системний список" : selected.skill}</span><h2>{selected.title}</h2><p>{selected.description || "Без опису — можна додати пізніше."}</p></div>{selected.id !== INBOX_PROJECT_ID && <div className="inline-actions"><button title="Редагувати" aria-label="Редагувати проєкт" onClick={() => openModal({ kind: "project", project: selected })}><Edit3 size={17}/></button><button title="Видалити" aria-label="Видалити проєкт" onClick={() => confirmDeleteProject(selected, store, requestConfirmation)}><Trash2 size={17}/></button></div>}</div>
-        <div className="project-kpis"><div><span>Прогрес</span><strong>{projectProgress(selected.id, store.data.tasks)}%</strong></div><div><span>Час</span><strong>{formatDuration(projectTime(selected.id, store.data.tasks, store.trackedMsByTask))}</strong></div><div><span>Виконано</span><strong>{tasks.filter((task) => task.status === "completed").length}/{tasks.length}</strong></div></div>
+        <div className="project-kpis"><div><span>Прогрес</span><strong>{projectProgress(selected.id, store.data.tasks)}%</strong></div><div><span>Час</span><strong>{formatDuration(projectTime(selected.id, store.data.tasks, trackedMsByTask))}</strong></div><div><span>Виконано</span><strong>{tasks.filter((task) => task.status === "completed").length}/{tasks.length}</strong></div></div>
         <div className="section-heading"><div><strong>Задачі</strong><span>{tasks.length}</span></div><button onClick={() => openModal({ kind: "task", projectId: selected.id })}><Plus size={16}/> Додати задачу</button></div>
-        {tasks.length ? <div className="full-task-list">{tasks.sort((a, b) => Number(a.status === "completed") - Number(b.status === "completed") || a.sortOrder - b.sortOrder).map((task) => {
-          const tracked = store.trackedMsByTask.get(task.id) ?? 0;
+        {tasks.length ? <div className="full-task-list">{sortedTasks.map((task) => {
+          const tracked = trackedMsByTask.get(task.id) ?? 0;
           const isActive = store.activeTask?.id === task.id;
           return <div className={`full-task-row ${task.status === "completed" ? "completed" : ""}`} key={task.id}>
             <button className={`status-check ${task.status === "completed" ? "checked" : ""}`} onClick={() => task.status === "completed" ? store.reopenTask(task.id) : store.completeTask(task.id)} aria-label={task.status === "completed" ? "Повернути задачу" : "Завершити задачу"}>{task.status === "completed" && <Check size={14}/>}</button>
             <div className="full-task-copy"><strong>{task.title}</strong><span>{task.targetMinutes} хв ціль · {formatDuration(tracked)} загалом</span></div>
-            {isActive && <span className="live-pill">● {formatTimer(sessionDuration(store.activeSession!, store.now))}</span>}
+            {isActive && <LiveTaskTimer session={store.activeSession!}/>}
             <div className="row-actions">
-              {task.status !== "completed" && <button title={isActive ? "Зупинити" : "Почати"} onClick={() => isActive ? store.stopActive() : store.startTask(task.id)}>{isActive ? <Pause size={17}/> : <CirclePlay size={17}/>}</button>}
-              <button title="Редагувати" onClick={() => openModal({ kind: "task", task })}><Edit3 size={16}/></button>
+              {task.status !== "completed" && <button title={isActive ? "Зупинити" : "Почати"} aria-label={`${isActive ? "Зупинити" : "Почати"} задачу ${task.title}`} onClick={() => isActive ? store.stopActive() : store.startTask(task.id)}>{isActive ? <Pause size={17}/> : <CirclePlay size={17}/>}</button>}
+              <button title="Редагувати" aria-label={`Редагувати задачу ${task.title}`} onClick={() => openModal({ kind: "task", task })}><Edit3 size={16}/></button>
               <button title="Видалити" aria-label={`Видалити задачу ${task.title}`} onClick={() => confirmDeleteTask(task, store, requestConfirmation)}><Trash2 size={16}/></button>
             </div>
           </div>;
@@ -323,35 +369,44 @@ function ProjectsPage({ store, openModal, requestConfirmation }: { store: Store;
   </section>;
 }
 
+function LiveTaskTimer({ session }: { session: NonNullable<Store["activeSession"]> }) {
+  const now = useLiveNow(1000);
+  return <span className="live-pill">● {formatTimer(sessionDuration(session, now))}</span>;
+}
+
 function AnalyticsPage({ store }: { store: Store }) {
+  const now = useLiveNow(60_000);
   const [period, setPeriod] = useState<AnalyticsPeriod>("week");
-  const [periodAnchor, setPeriodAnchor] = useState(() => store.now);
+  const [periodAnchor, setPeriodAnchor] = useState(() => now);
   const [followsCurrentPeriod, setFollowsCurrentPeriod] = useState(true);
   const [selectedHeatmapDetail, setSelectedHeatmapDetail] = useState<string | null>(null);
-  useEffect(() => { if (followsCurrentPeriod) setPeriodAnchor(store.now); }, [followsCurrentPeriod, store.now]);
-  const stats = buildStats(store.data.sessions, store.now);
-  const periodSummary = buildAnalyticsPeriod(store.data.sessions, period, periodAnchor, store.now);
-  const currentPeriodStart = buildAnalyticsPeriod(store.data.sessions, period, store.now, store.now).start;
-  const heatmap = buildHeatmap(store.data.sessions, store.now);
-  const sessions = [...store.data.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 8);
+  const analyticsNow = Math.floor(now / 60_000) * 60_000;
+  useEffect(() => { if (followsCurrentPeriod) setPeriodAnchor(analyticsNow); }, [analyticsNow, followsCurrentPeriod]);
+  const stats = useMemo(() => buildStats(store.data.sessions, analyticsNow), [analyticsNow, store.data.sessions]);
+  const periodSummary = useMemo(() => buildAnalyticsPeriod(store.data.sessions, period, periodAnchor, analyticsNow), [analyticsNow, period, periodAnchor, store.data.sessions]);
+  const currentPeriodStart = useMemo(() => buildAnalyticsPeriod(store.data.sessions, period, analyticsNow, analyticsNow).start, [analyticsNow, period, store.data.sessions]);
+  const heatmap = useMemo(() => buildHeatmap(store.data.sessions, analyticsNow), [analyticsNow, store.data.sessions]);
+  const sessions = useMemo(() => [...store.data.sessions].sort((a, b) => b.startedAt.localeCompare(a.startedAt)).slice(0, 8), [store.data.sessions]);
   return <section className="page page-enter">
-    <div className="page-title analytics-title"><div><span className="eyebrow-dark">БЕЗ ОЦІНЮВАННЯ</span><h1>Аналітика фокусу</h1><p>Лише фактичний час і м’які тенденції.</p></div><div className="analytics-periods" aria-label="Період аналітики">{(["week", "month", "year"] as AnalyticsPeriod[]).map((item) => <button className={period === item ? "active" : ""} onClick={() => { setPeriod(item); setPeriodAnchor(store.now); setFollowsCurrentPeriod(true); }} aria-pressed={period === item} key={item}>{analyticsPeriodLabel(item)}</button>)}</div></div>
+    <div className="page-title analytics-title"><div><span className="eyebrow-dark">БЕЗ ОЦІНЮВАННЯ</span><h1>Аналітика фокусу</h1><p>Лише фактичний час і м’які тенденції.</p></div><div className="analytics-periods" aria-label="Період аналітики">{(["week", "month", "year"] as AnalyticsPeriod[]).map((item) => <button className={period === item ? "active" : ""} onClick={() => { setPeriod(item); setPeriodAnchor(now); setFollowsCurrentPeriod(true); }} aria-pressed={period === item} key={item}>{analyticsPeriodLabel(item)}</button>)}</div></div>
     <section className="stats-row analytics-stats">{stats.map((stat) => <StatCard key={stat.label} {...stat}/>)}</section>
-    <article className="card period-summary"><div><span className="eyebrow-dark">ОБРАНИЙ ПЕРІОД</span><strong>{periodSummary.label}</strong><small>{periodSummary.deltaLabel}</small></div><div className="period-total"><span>Сфокусовано</span><strong>{formatDuration(periodSummary.total)}</strong></div><div className="period-navigation"><button onClick={() => { setFollowsCurrentPeriod(false); setPeriodAnchor(periodSummary.previousAnchor); }} aria-label="Попередній період"><ChevronLeft size={18}/></button><button onClick={() => { setFollowsCurrentPeriod(true); setPeriodAnchor(store.now); }} disabled={periodSummary.isCurrent}>Сьогодні</button><button onClick={() => { const next = periodSummary.nextAnchor; setPeriodAnchor(next); setFollowsCurrentPeriod(next >= currentPeriodStart); }} disabled={periodSummary.isCurrent} aria-label="Наступний період"><ChevronRight size={18}/></button></div></article>
+    <article className="card period-summary"><div><span className="eyebrow-dark">ОБРАНИЙ ПЕРІОД</span><strong>{periodSummary.label}</strong><small>{periodSummary.deltaLabel}</small></div><div className="period-total"><span>Сфокусовано</span><strong>{formatDuration(periodSummary.total)}</strong></div><div className="period-navigation"><button onClick={() => { setFollowsCurrentPeriod(false); setPeriodAnchor(periodSummary.previousAnchor); }} aria-label="Попередній період"><ChevronLeft size={18}/></button><button onClick={() => { setFollowsCurrentPeriod(true); setPeriodAnchor(now); }} disabled={periodSummary.isCurrent}>Сьогодні</button><button onClick={() => { const next = periodSummary.nextAnchor; setPeriodAnchor(next); setFollowsCurrentPeriod(next >= currentPeriodStart); }} disabled={periodSummary.isCurrent} aria-label="Наступний період"><ChevronRight size={18}/></button></div></article>
     <div className="analytics-layout">
       <article className="card analytics-card analytics-large"><div className="card-heading"><span>{analyticsPeriodLabel(period).toUpperCase()} · ДИНАМІКА</span><span>{formatDuration(periodSummary.total)}</span></div><WeekBars days={periodSummary.buckets}/></article>
       <article className="card heatmap-card"><div className="card-heading"><span>АКТИВНІСТЬ · 12 ТИЖНІВ</span><span>{heatmap.filter((day) => day.value > 0).length} активних днів</span></div><div className="heatmap" aria-label="Карта активності за 12 тижнів">{heatmap.map((day, index) => { const detail = `${day.date}: ${formatDuration(day.value)}`; return <button type="button" key={day.date} tabIndex={day.value > 0 || index === 0 ? 0 : -1} aria-label={detail} aria-pressed={selectedHeatmapDetail === detail} onFocus={() => setSelectedHeatmapDetail(detail)} onClick={() => setSelectedHeatmapDetail(detail)} data-tooltip={detail} data-level={day.level}/>; })}</div><div className="heatmap-legend" aria-label="Інтенсивність активності"><span>0 хв</span><i data-level="0" aria-hidden="true"/><i data-level="1" aria-hidden="true"/><i data-level="2" aria-hidden="true"/><i data-level="3" aria-hidden="true"/><i data-level="4" aria-hidden="true"/><span>більше часу</span></div><p className="heatmap-detail" aria-live="polite">{selectedHeatmapDetail ?? "Обери день курсором, дотиком або клавіатурою"}</p><p className="chart-help">Кожна клітинка — один день. Точний час доступний для курсора, дотику й клавіатури.</p></article>
       <article className="card history-card"><div className="card-heading"><span>ОСТАННІ СЕСІЇ</span><span>{store.data.sessions.length}</span></div>{sessions.length ? <div className="history-list">{sessions.map((session) => {
         const task = store.data.tasks.find((item) => item.id === session.taskId);
         const project = projectOf(task, store.data.projects);
-        return <div key={session.id}><span className="history-icon"><Clock3 size={15}/></span><span><strong>{task?.title ?? "Видалена задача"}</strong><small>{project?.title ?? "Без проєкту"} · {new Date(session.startedAt).toLocaleDateString("uk-UA")}</small></span><b>{formatDuration(sessionDuration(session, store.now))}</b></div>;
+        return <div key={session.id}><span className="history-icon"><Clock3 size={15}/></span><span><strong>{task?.title ?? "Видалена задача"}</strong><small>{project?.title ?? "Без проєкту"} · {new Date(session.startedAt).toLocaleDateString("uk-UA")}</small></span><b>{formatDuration(sessionDuration(session, now))}</b></div>;
       })}</div> : <div className="panel-empty"><BarChart3 size={30}/><strong>Завершені сесії з’являться тут</strong></div>}</article>
     </div>
   </section>;
 }
 
 function SkillsPage({ store }: { store: Store }) {
-  const skills = buildSkills(store.data, store.trackedMsByTask);
+  const now = useLiveNow(store.activeSession ? 60_000 : null);
+  const trackedMsByTask = useTrackedMsByTask(store.finalizedMsByTask, store.activeSession, now);
+  const skills = buildSkills(store.data, trackedMsByTask);
   return <section className="page page-enter">
     <div className="page-title"><div><span className="eyebrow-dark">НАКОПИЧЕНА ПРАКТИКА</span><h1>Навички</h1><p>Рівні показують лише вкладений час, а не оцінюють професіоналізм.</p></div></div>
     {skills.length ? <div className="skills-grid">{skills.map((skill) => {
@@ -422,26 +477,29 @@ function SettingsPage({ store, requestConfirmation }: { store: Store; requestCon
   </section>;
 }
 
-function ProjectModal({ project, onClose, onSave }: { project?: Project; onClose: () => void; onSave: (input: Pick<Project, "title" | "description" | "skill">) => void }) {
+function ProjectModal({ project, onClose, onSave, returnFocusRef }: { project?: Project; onClose: () => void; onSave: (input: Pick<Project, "title" | "description" | "skill">) => void; returnFocusRef: React.RefObject<HTMLElement | null> }) {
   const [title, setTitle] = useState(project?.title ?? "");
   const [description, setDescription] = useState(project?.description ?? "");
   const [skill, setSkill] = useState(project?.skill ?? "After Effects");
   const submit = (event: FormEvent) => { event.preventDefault(); if (title.trim()) onSave({ title, description, skill }); };
-  return <Modal title={project ? "Редагувати проєкт" : "Новий проєкт"} subtitle="Проєкт об’єднує задачі й накопичений час." onClose={onClose}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={80} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Наприклад, Портфоліо" required/></label><label>Опис<textarea rows={3} maxLength={240} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Необов’язковий короткий контекст"/></label><label>Основна навичка<input list="skills" value={skill} onChange={(event) => setSkill(event.target.value)} required/><datalist id="skills">{skillSuggestions.map((item) => <option value={item} key={item}/>)}</datalist></label><div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{project ? "Зберегти" : "Створити проєкт"}</button></div></form></Modal>;
+  return <Modal title={project ? "Редагувати проєкт" : "Новий проєкт"} subtitle="Проєкт об’єднує задачі й накопичений час." onClose={onClose} returnFocusRef={returnFocusRef}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={80} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Наприклад, Портфоліо" required/></label><label>Опис<textarea rows={3} maxLength={240} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Необов’язковий короткий контекст"/></label><label>Основна навичка<input list="skills" value={skill} onChange={(event) => setSkill(event.target.value)} required/><datalist id="skills">{skillSuggestions.map((item) => <option value={item} key={item}/>)}</datalist></label><div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{project ? "Зберегти" : "Створити проєкт"}</button></div></form></Modal>;
 }
 
-function TaskModal({ task, initialProjectId, projects, presets, onClose, onSave }: { task?: Task; initialProjectId?: string; projects: Project[]; presets: number[]; onClose: () => void; onSave: (input: Pick<Task, "title" | "projectId" | "targetMinutes">, start: boolean) => void }) {
+function TaskModal({ task, initialProjectId, projects, presets, onClose, onSave, returnFocusRef }: { task?: Task; initialProjectId?: string; projects: Project[]; presets: number[]; onClose: () => void; onSave: (input: Pick<Task, "title" | "projectId" | "targetMinutes">, start: boolean) => void; returnFocusRef: React.RefObject<HTMLElement | null> }) {
   const [title, setTitle] = useState(task?.title ?? "");
   const [projectId, setProjectId] = useState(task?.projectId === INBOX_PROJECT_ID ? "" : task?.projectId ?? initialProjectId ?? "");
   const [targetMinutes, setTargetMinutes] = useState(task?.targetMinutes ?? presets[0] ?? 5);
   const [start, setStart] = useState(false);
   const submit = (event: FormEvent) => { event.preventDefault(); if (title.trim()) onSave({ title, projectId, targetMinutes: Math.max(1, targetMinutes) }, start); };
-  return <Modal title={task ? "Редагувати задачу" : "Нова задача"} subtitle="Сформулюй один конкретний наступний крок." onClose={onClose}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Що саме потрібно зробити?" required/></label><label>Проєкт <small>необов’язково</small><select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Без проєкту</option>{projects.filter((project) => project.id !== INBOX_PROJECT_ID).map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label><fieldset><legend>Ціль фокусу</legend><div className="target-options">{presets.map((preset) => <button type="button" className={targetMinutes === preset ? "selected" : ""} onClick={() => setTargetMinutes(preset)} key={preset}>{preset} хв</button>)}<label><input type="number" min="1" max="240" value={targetMinutes} onChange={(event) => setTargetMinutes(Number(event.target.value))}/><span>хв</span></label></div></fieldset>{!task && <label className="check-row"><input type="checkbox" checked={start} onChange={(event) => setStart(event.target.checked)}/><span>Одразу почати фокус</span></label>}<div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{task ? "Зберегти" : start ? "Створити й почати" : "Додати задачу"}</button></div></form></Modal>;
+  return <Modal title={task ? "Редагувати задачу" : "Нова задача"} subtitle="Сформулюй один конкретний наступний крок." onClose={onClose} returnFocusRef={returnFocusRef}><form className="modal-form" onSubmit={submit}><label>Назва<input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Що саме потрібно зробити?" required/></label><label>Проєкт <small>необов’язково</small><select value={projectId} onChange={(event) => setProjectId(event.target.value)}><option value="">Без проєкту</option>{projects.filter((project) => project.id !== INBOX_PROJECT_ID).map((project) => <option value={project.id} key={project.id}>{project.title}</option>)}</select></label><fieldset><legend>Ціль фокусу</legend><div className="target-options">{presets.map((preset) => <button type="button" className={targetMinutes === preset ? "selected" : ""} onClick={() => setTargetMinutes(preset)} key={preset}>{preset} хв</button>)}<label><input type="number" min="1" max="240" value={targetMinutes} onChange={(event) => setTargetMinutes(Number(event.target.value))}/><span>хв</span></label></div></fieldset>{!task && <label className="check-row"><input type="checkbox" checked={start} onChange={(event) => setStart(event.target.checked)}/><span>Одразу почати фокус</span></label>}<div className="modal-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{task ? "Зберегти" : start ? "Створити й почати" : "Додати задачу"}</button></div></form></Modal>;
 }
 
-function Modal({ title, subtitle, onClose, children }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => { const listener = (event: KeyboardEvent) => event.key === "Escape" && onClose(); window.addEventListener("keydown", listener); return () => window.removeEventListener("keydown", listener); }, [onClose]);
-  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><button className="modal-close" onClick={onClose} aria-label="Закрити"><X size={19}/></button><div className="modal-heading"><span className="modal-icon"><Plus size={20}/></span><div><h2 id="modal-title">{title}</h2><p>{subtitle}</p></div></div>{children}</section></div>;
+function Modal({ title, subtitle, onClose, children, returnFocusRef }: { title: string; subtitle: string; onClose: () => void; children: React.ReactNode; returnFocusRef: React.RefObject<HTMLElement | null> }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  useDialogFocus(dialogRef, onClose, undefined, returnFocusRef);
+  return <div className="modal-backdrop" onMouseDown={(event) => event.target === event.currentTarget && onClose()}><section ref={dialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1}><button className="modal-close" onClick={onClose} aria-label="Закрити"><X size={19}/></button><div className="modal-heading"><span className="modal-icon"><Plus size={20}/></span><div><h2 id={titleId}>{title}</h2><p id={descriptionId}>{subtitle}</p></div></div>{children}</section></div>;
 }
 
 function StatCard({ label, value, delta }: { label: string; value: string; delta: string }) {
@@ -477,7 +535,7 @@ function EmptyWorkspace({ onCreate, icon }: { onCreate: () => void; icon?: "skil
 }
 
 function confirmDeleteTask(task: Task, store: Store, requestConfirmation: RequestConfirmation) {
-  const tracked = store.trackedMsByTask.get(task.id) ?? 0;
+  const tracked = taskTrackedMs(task.id, store.data.sessions, Date.now());
   requestConfirmation({
     title: "Видалити задачу?",
     message: `«${task.title}» і ${formatDuration(tracked)} пов’язаної статистики буде видалено без можливості відновлення.`,

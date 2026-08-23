@@ -59,6 +59,7 @@ export function parseAiReply(raw: string): AiReply {
 }
 
 export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMessage[], question: string) {
+  const wholeMinutes = (milliseconds: number) => Math.floor(Math.max(0, milliseconds) / 60_000);
   const projects = data.projects.map((project) => ({
     id: project.id,
     title: project.title,
@@ -75,14 +76,14 @@ export function buildAiPrompt(data: AppSnapshot, now: number, history: AiChatMes
   const sessions = data.settings.aiIncludeSessionHistory ? data.sessions.map((session) => ({
     taskId: session.taskId,
     startedAt: session.startedAt,
-    durationMinutes: Math.round(sessionDuration(session, now) / 60_000),
+    durationMinutes: wholeMinutes(sessionDuration(session, now)),
   })) : [];
   const today = startOfDay(new Date(now));
   const week = startOfWeek(new Date(now));
   const summary = {
-    todayMinutes: Math.round(totalInside(data.sessions, today, today + 86_400_000, now) / 60_000),
-    weekMinutes: Math.round(totalInside(data.sessions, week, week + 7 * 86_400_000, now) / 60_000),
-    allTimeMinutes: Math.round(totalInside(data.sessions, 0, now + 1, now) / 60_000),
+    todayMinutes: wholeMinutes(totalInside(data.sessions, today, today + 86_400_000, now)),
+    weekMinutes: wholeMinutes(totalInside(data.sessions, week, week + 7 * 86_400_000, now)),
+    allTimeMinutes: wholeMinutes(totalInside(data.sessions, 0, now + 1, now)),
   };
   const conversation = history.slice(-8).map(({ role, content }) => ({ role, content }));
 

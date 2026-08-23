@@ -4,6 +4,13 @@ This is the chronological decision log for confirmed product and architecture ch
 
 **Rule:** when a newer entry conflicts with older documentation, the newer confirmed entry wins and the conflicting product spec should be updated in the same change.
 
+## 2026-08-23 — Explicit task selection and timer start
+
+- Clicking the content of a task in Home → Next Tasks selects it as the next candidate and must not start, stop or replace a focus session.
+- A focus session begins only from an explicit Start, Resume or Play control.
+- While another task is active, selecting a next task keeps the current timer running and marks the selection as queued for the next focus.
+- Explicitly pressing Play on a different task retains the existing one-active-session contract: stop the current session and start the chosen task.
+
 ## 2026-08-23 — AI navigation placement
 
 - The primary navigation remains limited to Home, Projects, Analytics, Skills and Settings.

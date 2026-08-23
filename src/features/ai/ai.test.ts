@@ -63,4 +63,16 @@ describe("AI local context", () => {
     expect(prompt).toContain("не передаються за вибором користувача");
     expect(prompt).not.toContain('"taskId":"task-1","startedAt"');
   });
+
+  it("uses the same whole-minute rounding as the interface", () => {
+    const now = Date.parse("2026-08-18T12:00:59.000Z");
+    const withShortSession: AppSnapshot = {
+      ...data,
+      sessions: [{ id: "session-1", taskId: "task-1", startedAt: "2026-08-18T12:00:00.000Z", endedAt: null, durationMs: null, targetMinutes: 5, targetNotified: false }],
+    };
+    const prompt = buildAiPrompt(withShortSession, now, [], "Скільки часу?");
+    expect(prompt).toContain('"durationMinutes":0');
+    expect(prompt).toContain('"todayMinutes":0');
+    expect(prompt).toContain('"allTimeMinutes":0');
+  });
 });

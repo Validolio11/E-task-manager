@@ -80,8 +80,9 @@ async function showTargetNotification(taskTitle?: string) {
 export function useFocusStore() {
   const [data, setData] = useState<AppSnapshot>(emptySnapshot);
   const [loading, setLoading] = useState(true);
-  const [now, setNow] = useState(Date.now());
   const [notice, setNotice] = useState<string | null>(null);
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const loadedOnce = useRef(false);
   const shouldPersist = useRef(false);
   const saveQueue = useRef<Promise<void>>(Promise.resolve());
@@ -94,20 +95,6 @@ export function useFocusStore() {
       .catch((error) => setNotice(`Не вдалося відкрити локальні дані: ${String(error)}`))
       .finally(() => setLoading(false));
   }, []);
-
-  const hasActiveSession = data.sessions.some((session) => !session.endedAt);
-
-  useEffect(() => {
-    const tick = () => setNow(Date.now());
-    tick();
-    const interval = window.setInterval(tick, hasActiveSession ? 1000 : 60_000);
-    const syncWhenVisible = () => document.visibilityState === "visible" && tick();
-    document.addEventListener("visibilitychange", syncWhenVisible);
-    return () => {
-      window.clearInterval(interval);
-      document.removeEventListener("visibilitychange", syncWhenVisible);
-    };
-  }, [hasActiveSession]);
 
   useEffect(() => {
     if (!notice) return;
@@ -132,22 +119,38 @@ export function useFocusStore() {
 
   const activeSession = useMemo(() => data.sessions.find((session) => !session.endedAt) ?? null, [data.sessions]);
   const activeTask = useMemo(() => data.tasks.find((task) => task.id === activeSession?.taskId) ?? null, [activeSession, data.tasks]);
-  const trackedMsByTask = useMemo(() => trackedTimeByTask(data.sessions, now), [data.sessions, now]);
-
+  const finalizedMsByTask = useMemo(
+    () => trackedTimeByTask(data.sessions.filter((session) => session.endedAt), 0),
+    [data.sessions],
+  );
   useEffect(() => {
     if (!activeSession || activeSession.targetNotified) return;
-    const elapsed = now - Date.parse(activeSession.startedAt);
-    if (elapsed < activeSession.targetMinutes * 60_000) return;
-
-    commit((current) => ({
-      ...current,
-      sessions: current.sessions.map((session) => session.id === activeSession.id ? { ...session, targetNotified: true } : session),
-    }));
-    const task = data.tasks.find((item) => item.id === activeSession.taskId);
-    setNotice(`Ціль досягнута${task ? `: ${task.title}` : ""}. Можна продовжувати у своєму темпі.`);
-    void showTargetNotification(task?.title);
-    if (data.settings.soundEnabled) playTargetSound();
-  }, [activeSession, commit, data.settings.soundEnabled, data.tasks, now]);
+    const targetAt = Date.parse(activeSession.startedAt) + activeSession.targetMinutes * 60_000;
+    let fired = false;
+    const notifyReached = () => {
+      const currentSession = dataRef.current.sessions.find((session) => session.id === activeSession.id);
+      if (fired || Date.now() < targetAt || !currentSession || currentSession.endedAt || currentSession.targetNotified) return;
+      fired = true;
+      commit((current) => ({
+        ...current,
+        sessions: current.sessions.map((session) => session.id === activeSession.id ? { ...session, targetNotified: true } : session),
+      }));
+      const task = dataRef.current.tasks.find((item) => item.id === activeSession.taskId);
+      setNotice(`Ціль досягнута${task ? `: ${task.title}` : ""}. Можна продовжувати у своєму темпі.`);
+      void showTargetNotification(task?.title);
+      if (dataRef.current.settings.soundEnabled) playTargetSound();
+    };
+    const remaining = targetAt - Date.now();
+    const timeout = remaining <= 0
+      ? window.setTimeout(notifyReached, 0)
+      : window.setTimeout(notifyReached, Math.min(remaining, 2_147_483_647));
+    const syncWhenVisible = () => document.visibilityState === "visible" && notifyReached();
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.clearTimeout(timeout);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
+  }, [activeSession, commit]);
 
   const createProject = useCallback((input: ProjectInput) => {
     const timestamp = new Date().toISOString();
@@ -219,7 +222,6 @@ export function useFocusStore() {
         sessions: [...sessions, session],
       };
     });
-    setNow(Date.now());
   }, [commit]);
 
   const stopActive = useCallback(() => {
@@ -287,7 +289,7 @@ export function useFocusStore() {
   }, []);
 
   return {
-    data, loading, now, notice, activeSession, activeTask, trackedMsByTask,
+    data, loading, notice, activeSession, activeTask, finalizedMsByTask,
     createProject, updateProject, createTask, updateTask, startTask, stopActive,
     completeTask, reopenTask, deleteTask, deleteProject, updateSettings, importBackup, resetAll,
   };
