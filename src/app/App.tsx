@@ -27,7 +27,10 @@ function Workspace() {
   }, [aiOpen, deleteCandidate, editor.open, queueOpen]);
   useEffect(() => {
     if (!queueOpen && !aiOpen) return;
-    const keydown = (event: KeyboardEvent) => event.key === "Escape" && closeTopLayer();
+    const keydown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || document.querySelector(".dialog-backdrop")) return;
+      closeTopLayer();
+    };
     document.addEventListener("keydown", keydown);
     return () => document.removeEventListener("keydown", keydown);
   }, [aiOpen, closeTopLayer, queueOpen]);
