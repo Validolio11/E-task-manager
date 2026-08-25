@@ -1,4 +1,4 @@
-.dock{--task-card-width:180px;--all-tasks-width:144px;align-self:center;width:max-content;max-width:min(100%,1088px);height:88px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 16px 45px rgba(48,52,77,.12);display:flex;gap:6px;padding:7px;margin-bottom:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch}
+.dock{--task-card-width:180px;--all-tasks-width:144px;--dock-pad:7px;align-self:center;width:max-content;max-width:min(100%,1088px);height:88px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 16px 45px rgba(48,52,77,.12);display:flex;gap:6px;padding:var(--dock-pad);margin-bottom:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch}
 .dock::-webkit-scrollbar{display:none}
 .dock>.task,.dock>.all-tasks{cursor:grab}
 .dock.dragging,.dock.gliding{scroll-snap-type:none}
@@ -11,6 +11,7 @@
 .task.selected{background:var(--accent-soft)}
 .task.selected>svg,.task.selected small,.task.active>svg,.task.active small{color:var(--accent)}
 .task.paused{border:1px solid #e1e3e9}.task.paused>svg{color:var(--paused)}
-.all-tasks{position:sticky;left:0;z-index:2;flex:0 0 var(--all-tasks-width);min-width:0;border:0;background:#f7f8fb;color:var(--text);border-radius:15px;padding:10px 12px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;text-align:left;scroll-snap-align:start;box-shadow:10px 0 18px -18px rgba(48,52,77,.55)}
+.all-tasks{position:sticky;left:0;z-index:2;isolation:isolate;flex:0 0 var(--all-tasks-width);min-width:0;border:0;background:#f7f8fb;color:var(--text);border-radius:15px;padding:10px 12px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;text-align:left;scroll-snap-align:start;box-shadow:10px 0 18px -18px rgba(48,52,77,.55)}
+.all-tasks::before{content:"";position:absolute;z-index:-1;top:calc(-1 * var(--dock-pad));right:0;bottom:calc(-1 * var(--dock-pad));left:calc(-1 * var(--dock-pad));background:var(--surface);pointer-events:none}
 .all-tasks>svg{width:18px;height:18px;stroke-width:1.8;color:var(--accent)}
 .all-tasks b{display:block;font-size:12px;white-space:nowrap}.all-tasks small{display:block;color:var(--muted);font-size:10px;margin-top:4px;white-space:nowrap}
