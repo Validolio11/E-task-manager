@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { appReducer } from "../domain/state";
 import type { AiMessage, AppState, Task, TaskInput } from "../domain/types";
-import { loadState, saveState } from "../persistence/storage";
+import { loadStateResult, recoverState, saveState, STORAGE_KEY } from "../persistence/storage";
+import "./store.css";
 
 type AppStore = {
   state: AppState;
@@ -20,9 +21,41 @@ const StoreContext = createContext<AppStore | null>(null);
 const id = () => crypto.randomUUID();
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(appReducer, undefined, loadState);
+  const [loaded] = useState(loadStateResult);
+  const [state, dispatch] = useReducer(appReducer, loaded.state);
+  const [loadWarning, setLoadWarning] = useState(loaded.warning);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const externalStateToSkip = useRef<AppState | null>(null);
 
-  useEffect(() => { saveState(state); }, [state]);
+  useEffect(() => {
+    if (externalStateToSkip.current === state) {
+      externalStateToSkip.current = null;
+      return;
+    }
+    const result = saveState(state);
+    setSaveError(result.ok ? null : result.error);
+  }, [state]);
+  useEffect(() => {
+    const synchronizeTabs = (event: StorageEvent) => {
+      if (event.key !== STORAGE_KEY) return;
+      if (event.newValue === null) {
+        const emptyState = recoverState(null).state;
+        externalStateToSkip.current = emptyState;
+        dispatch({ type: "state/replace", state: emptyState });
+        return;
+      }
+      try {
+        const recovered = recoverState(JSON.parse(event.newValue));
+        externalStateToSkip.current = recovered.state;
+        dispatch({ type: "state/replace", state: recovered.state });
+        if (recovered.recovered) setLoadWarning("Зміни з іншої вкладки містили пошкоджені дані. Відновлено лише безпечну частину.");
+      } catch {
+        setLoadWarning("Зміни з іншої вкладки пошкоджені й не були застосовані.");
+      }
+    };
+    window.addEventListener("storage", synchronizeTabs);
+    return () => window.removeEventListener("storage", synchronizeTabs);
+  }, []);
 
   const selectTask = useCallback((taskId: string) => dispatch({ type: "task/select", taskId }), []);
   const createTask = useCallback((input: TaskInput) => {
@@ -39,7 +72,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const addAiMessage = useCallback((message: Omit<AiMessage, "id" | "createdAt">) => dispatch({ type: "ai/add", message: { ...message, id: id(), createdAt: new Date().toISOString() } }), []);
 
   const value = useMemo<AppStore>(() => ({ state, selectTask, createTask, updateTask, deleteTask, startFocus, pauseFocus, completeTask, reopenTask, addAiMessage }), [state, selectTask, createTask, updateTask, deleteTask, startFocus, pauseFocus, completeTask, reopenTask, addAiMessage]);
-  return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
+  const persistenceMessage = saveError ?? loadWarning;
+  const retrySave = () => {
+    const result = saveState(state);
+    setSaveError(result.ok ? null : result.error);
+  };
+
+  return <StoreContext.Provider value={value}>
+    {children}
+    {persistenceMessage && <div className="persistence-alert" role="alert" aria-live="assertive">
+      <span>{persistenceMessage}</span>
+      {saveError && <button type="button" onClick={retrySave}>Повторити</button>}
+      <button type="button" aria-label="Закрити повідомлення" onClick={() => { setSaveError(null); setLoadWarning(null); }}>×</button>
+    </div>}
+  </StoreContext.Provider>;
 }
 
 export function useAppStore() {

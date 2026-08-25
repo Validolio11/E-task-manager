@@ -1,4 +1,4 @@
-# E-task 0.3.1
+# E-task 0.3.2
 
 Minimal focus-first task manager rebuilt in React from the approved Focus Dock design.
 

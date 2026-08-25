@@ -11,6 +11,7 @@ export function TaskDock({ onOpenAll }: { onOpenAll: () => void }) {
   const { state, selectTask } = useAppStore();
   const now = useNow(state.activeSession?.status === "running");
   const tasks = state.tasks.filter((task) => task.status === "todo").sort((a, b) => a.order - b.order);
+  const dockRef = useRef<HTMLElement>(null);
   const drag = useRef({ pointerId: null as number | null, captureElement: null as Element | null, startX: 0, startY: 0, startScrollLeft: 0, lastX: 0, lastMoveAt: 0, velocity: 0, moved: false, blockClick: false });
   const inertia = useRef({ frame: null as number | null, dock: null as HTMLElement | null });
 
@@ -45,9 +46,27 @@ export function TaskDock({ onOpenAll }: { onOpenAll: () => void }) {
     inertia.current.frame = requestAnimationFrame(animate);
   };
 
-  useEffect(() => () => stopInertia(), []);
+  useEffect(() => {
+    const dock = dockRef.current;
+    if (!dock) return;
+    const handleWheel = (event: WheelEvent) => {
+      if (dock.scrollWidth <= dock.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+      const maximum = dock.scrollWidth - dock.clientWidth;
+      const canConsume = (event.deltaY > 0 && dock.scrollLeft < maximum) || (event.deltaY < 0 && dock.scrollLeft > 0);
+      if (!canConsume) return;
+      stopInertia();
+      event.preventDefault();
+      dock.scrollLeft = Math.max(0, Math.min(maximum, dock.scrollLeft + event.deltaY));
+    };
+    dock.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      dock.removeEventListener("wheel", handleWheel);
+      stopInertia();
+    };
+  }, []);
 
   return <nav
+    ref={dockRef}
     className="dock"
     aria-label="Швидкий вибір задачі"
     onPointerDown={(event) => {
@@ -111,13 +130,6 @@ export function TaskDock({ onOpenAll }: { onOpenAll: () => void }) {
       drag.current.blockClick = false;
     }}
     onDragStart={(event) => event.preventDefault()}
-    onWheel={(event) => {
-      const dock = event.currentTarget;
-      if (dock.scrollWidth <= dock.clientWidth || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
-      stopInertia();
-      event.preventDefault();
-      dock.scrollLeft += event.deltaY;
-    }}
   >
     <button className="all-tasks" type="button" onClick={onOpenAll} aria-label="Відкрити всі задачі"><ListTodo/><span><b>Усі задачі</b><small>{tasks.length} доступно</small></span></button>
     {tasks.map((task) => {

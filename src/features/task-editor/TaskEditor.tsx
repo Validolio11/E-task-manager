@@ -21,6 +21,7 @@ export function TaskEditor({ task, onClose, onSave }: { task: Task | null; onClo
   const [emoji, setEmoji] = useState(task ? resolveTaskEmoji(task.icon, task.emoji) : "📝");
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerMounted, setPickerMounted] = useState(false);
+  const [errors, setErrors] = useState<{ title?: string; minutes?: string }>({});
   const pickerButtonRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const mountPicker = () => setPickerMounted(true);
@@ -32,10 +33,14 @@ export function TaskEditor({ task, onClose, onSave }: { task: Task | null; onClo
     const timeoutId = globalThis.setTimeout(mountPicker, 250);
     return () => globalThis.clearTimeout(timeoutId);
   }, []);
-  useEffect(() => { setTitle(task?.title ?? ""); setProject(task?.project ?? ""); setPlannedMinutes(task?.plannedMinutes ?? 30); setEmoji(task ? resolveTaskEmoji(task.icon, task.emoji) : "📝"); setPickerOpen(false); }, [task]);
+  useEffect(() => { setTitle(task?.title ?? ""); setProject(task?.project ?? ""); setPlannedMinutes(task?.plannedMinutes ?? 30); setEmoji(task ? resolveTaskEmoji(task.icon, task.emoji) : "📝"); setPickerOpen(false); setErrors({}); }, [task]);
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    if (!title.trim() || !Number.isInteger(plannedMinutes) || plannedMinutes < 1 || plannedMinutes > 480) return;
+    const nextErrors: { title?: string; minutes?: string } = {};
+    if (!title.trim()) nextErrors.title = "Введіть коротку назву задачі";
+    if (!Number.isInteger(plannedMinutes) || plannedMinutes < 1 || plannedMinutes > 480) nextErrors.minutes = "Вкажіть ціле число від 1 до 480";
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) return;
     onSave({ title: title.trim(), project: project.trim(), plannedMinutes, icon: task?.icon ?? "list", emoji: emoji.trim() || "📝" });
   };
   return <Dialog className="task-editor-dialog" title={task ? "Редагувати задачу" : "Нова задача"} description="Один конкретний наступний крок — без зайвих полів." onClose={onClose}>
@@ -46,8 +51,8 @@ export function TaskEditor({ task, onClose, onSave }: { task: Task | null; onClo
         <button className="emoji-change-label" type="button" onClick={() => { setPickerMounted(true); setPickerOpen(true); }}><SmilePlus aria-hidden="true"/>Змінити</button>
       </aside>
       <div className="task-editor-fields">
-        <label>Назва<input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Що потрібно зробити?" required/></label>
-        <div className="editor-grid"><label>Проєкт<input maxLength={60} value={project} onChange={(event) => setProject(event.target.value)} placeholder="Необов’язково"/></label><label>Час, хв<input type="number" min="1" max="480" step="1" value={plannedMinutes} onChange={(event) => setPlannedMinutes(Number(event.target.value))}/></label></div>
+        <label>Назва<input autoFocus data-dialog-initial-focus maxLength={120} value={title} onChange={(event) => { setTitle(event.target.value); if (errors.title) setErrors((current) => ({ ...current, title: undefined })); }} placeholder="Що потрібно зробити?" required aria-invalid={Boolean(errors.title)} aria-describedby={errors.title ? "task-title-error" : undefined}/>{errors.title && <small className="field-error" id="task-title-error" role="alert">{errors.title}</small>}</label>
+        <div className="editor-grid"><label>Проєкт<input maxLength={60} value={project} onChange={(event) => setProject(event.target.value)} placeholder="Необов’язково"/></label><label>Час, хв<input type="number" min="1" max="480" step="1" value={plannedMinutes} onChange={(event) => { setPlannedMinutes(Number(event.target.value)); if (errors.minutes) setErrors((current) => ({ ...current, minutes: undefined })); }} aria-invalid={Boolean(errors.minutes)} aria-describedby={errors.minutes ? "task-minutes-error" : undefined}/>{errors.minutes && <small className="field-error" id="task-minutes-error" role="alert">{errors.minutes}</small>}</label></div>
         <div className="dialog-actions"><button type="button" onClick={onClose}>Скасувати</button><button className="primary" type="submit">{task ? "Зберегти" : "Додати"}</button></div>
       </div>
       {pickerMounted && <aside className={`editorial-emoji-popover ${pickerOpen ? "open" : "preloaded"}`} id="task-emoji-catalog" aria-label="Каталог усіх емоджі" aria-hidden={!pickerOpen} inert={!pickerOpen ? true : undefined}><header><span><SmilePlus aria-hidden="true"/>Обрати емоджі</span><button type="button" onClick={() => { setPickerOpen(false); requestAnimationFrame(() => pickerButtonRef.current?.focus()); }} aria-label="Закрити каталог"><X aria-hidden="true"/></button></header><Suspense fallback={<div className="emoji-loading">Завантажую емоджі…</div>}><EmojiCatalog onSelect={(selected) => { setEmoji(selected); setPickerOpen(false); requestAnimationFrame(() => pickerButtonRef.current?.focus()); }}/></Suspense></aside>}

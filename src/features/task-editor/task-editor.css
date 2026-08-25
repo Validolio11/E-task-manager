@@ -164,6 +164,20 @@
   box-shadow: 0 2px 0 -1px var(--accent);
 }
 
+.task-editor-fields input[aria-invalid="true"] {
+  border-color: #c74d45;
+  box-shadow: 0 2px 0 -1px #c74d45;
+}
+
+.task-editor-fields .field-error {
+  color: #a73e37;
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-transform: none;
+}
+
 .editor-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 112px;
