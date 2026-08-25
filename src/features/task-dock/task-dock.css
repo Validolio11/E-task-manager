@@ -1,5 +1,8 @@
 .dock{--task-card-width:180px;--all-tasks-width:144px;align-self:center;width:max-content;max-width:min(100%,1088px);height:88px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 16px 45px rgba(48,52,77,.12);display:flex;gap:6px;padding:7px;margin-bottom:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch}
 .dock::-webkit-scrollbar{display:none}
+.dock>.task,.dock>.all-tasks{cursor:grab}
+.dock.dragging{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.dock.dragging>.task,.dock.dragging>.all-tasks{cursor:grabbing}
 .task{flex:0 0 var(--task-card-width);min-width:0;border:0;background:transparent;text-align:left;border-radius:15px;padding:10px 12px;color:var(--text);display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;align-items:center;scroll-snap-align:start}
 .task>svg{width:18px;height:18px;stroke-width:1.8;color:#7c8297}.task>.task-emoji{width:18px;height:18px}
 .task b{display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
