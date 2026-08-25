@@ -42,6 +42,7 @@ export default function EmojiCatalog({ onSelect }: { onSelect: (emoji: string) =
   const [columns, setColumns] = useState(8);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(330);
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>("smileys_people");
 
   const categories = useMemo(() => categoryConfig.map(({ key, title }) => {
     const raw = (ukEmojiData.emojis[key] ?? []) as RawEmoji[];
@@ -100,29 +101,41 @@ export default function EmojiCatalog({ onSelect }: { onSelect: (emoji: string) =
     if (scrollFrameRef.current !== null) return;
     scrollFrameRef.current = requestAnimationFrame(() => {
       scrollFrameRef.current = null;
-      setScrollTop(viewportRef.current?.scrollTop ?? 0);
+      const nextScrollTop = viewportRef.current?.scrollTop ?? 0;
+      setScrollTop(nextScrollTop);
+      let nextCategory = categoryConfig[0].key;
+      for (const { key } of categoryConfig) {
+        const offset = layout.categoryOffsets.get(key);
+        if (offset === undefined || offset > nextScrollTop + 12) break;
+        nextCategory = key;
+      }
+      setActiveCategory(nextCategory);
     });
   };
 
   const jumpToCategory = (category: CategoryKey) => {
     const top = layout.categoryOffsets.get(category);
     if (top === undefined || !viewportRef.current) return;
-    viewportRef.current.scrollTo({ top, behavior: "smooth" });
+    setActiveCategory(category);
+    setScrollTop(top);
+    viewportRef.current.scrollTop = top;
   };
 
   return <div className="emoji-catalog fast-emoji-catalog" aria-label="Каталог усіх емоджі">
-    <label className="emoji-search"><Search aria-hidden="true"/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Пошук емоджі" aria-label="Пошук емоджі"/>{query && <button type="button" onClick={() => setQuery("")} aria-label="Очистити пошук">×</button>}</label>
-    <nav className="emoji-categories" aria-label="Категорії емоджі">{categoryConfig.map(({ key, title, Icon }) => <button key={key} type="button" title={title} aria-label={title} onClick={() => jumpToCategory(key)}><Icon aria-hidden={true}/></button>)}</nav>
-    <div ref={viewportRef} className="emoji-viewport" onScroll={handleScroll}>
-      <div className="emoji-virtual-space" style={{ height: layout.total }}>
-        {visibleRows.map((row, visibleIndex) => {
-          const rowIndex = first + visibleIndex;
-          const style = { transform: `translateY(${layout.offsets[rowIndex]}px)`, height: rowHeight(row) };
-          if (row.type === "heading") return <div className="emoji-category-title" key={`${row.category}-heading`} style={style}>{deferredQuery ? `Результати · ${row.title}` : row.title}</div>;
-          return <div className="emoji-virtual-row" key={`${row.category}-${layout.offsets[rowIndex]}`} style={{ ...style, gridTemplateColumns: `repeat(${columns}, 1fr)` }}>{row.items.map((item) => <button key={item.unified} type="button" title={item.names[0]} aria-label={item.names[0]} onClick={() => onSelect(item.emoji)}>{item.emoji}</button>)}</div>;
-        })}
+    <nav className="emoji-categories" aria-label="Категорії емоджі">{categoryConfig.map(({ key, title, Icon }) => <button className={activeCategory === key ? "active" : ""} key={key} type="button" title={title} aria-label={title} aria-current={activeCategory === key ? "true" : undefined} onClick={() => jumpToCategory(key)}><Icon aria-hidden={true}/></button>)}</nav>
+    <div className="emoji-library-main">
+      <label className="emoji-search"><Search aria-hidden="true"/><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Знайти емодзі" aria-label="Пошук емодзі"/>{query && <button type="button" onClick={() => setQuery("")} aria-label="Очистити пошук">×</button>}</label>
+      <div ref={viewportRef} className="emoji-viewport" onScroll={handleScroll}>
+        <div className="emoji-virtual-space" style={{ height: layout.total }}>
+          {visibleRows.map((row, visibleIndex) => {
+            const rowIndex = first + visibleIndex;
+            const style = { transform: `translateY(${layout.offsets[rowIndex]}px)`, height: rowHeight(row) };
+            if (row.type === "heading") return <div className="emoji-category-title" key={`${row.category}-heading`} style={style}>{deferredQuery ? `Результати · ${row.title}` : row.title}</div>;
+            return <div className="emoji-virtual-row" key={`${row.category}-${layout.offsets[rowIndex]}`} style={{ ...style, gridTemplateColumns: `repeat(${columns}, 1fr)` }}>{row.items.map((item) => <button key={item.unified} type="button" title={item.names[0]} aria-label={item.names[0]} onClick={() => onSelect(item.emoji)}>{item.emoji}</button>)}</div>;
+          })}
+        </div>
+        {!rows.length && <div className="emoji-empty">Нічого не знайдено</div>}
       </div>
-      {!rows.length && <div className="emoji-empty">Нічого не знайдено</div>}
     </div>
   </div>;
 }
