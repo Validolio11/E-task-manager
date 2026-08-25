@@ -1,1 +1,0 @@
-ALTER TABLE tasks ADD COLUMN icon_key TEXT NOT NULL DEFAULT 'list-todo';

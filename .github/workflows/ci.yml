@@ -1,26 +1,26 @@
-name: Validate E-task
+name: Validate E-task web
 
 on:
   pull_request:
   push:
     branches:
       - main
-      - codex/initial-app-scaffold
-      - agent/windows-installer-updater
+
+permissions:
+  contents: read
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install Linux Tauri dependencies
-        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - run: cargo check --manifest-path src-tauri/Cargo.toml
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build

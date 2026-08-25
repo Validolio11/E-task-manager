@@ -1,0 +1,132 @@
+.task-editor {
+  display: grid;
+  gap: 17px;
+  margin-top: 24px;
+}
+
+.task-editor label,
+.task-editor fieldset {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.task-editor input {
+  width: 100%;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #f9fafc;
+  color: var(--text);
+  padding: 0 13px;
+  font: inherit;
+  outline: 0;
+}
+
+.task-editor input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(91, 95, 239, .12);
+}
+
+.editor-grid {
+  display: grid;
+  grid-template-columns: 1fr 116px;
+  gap: 12px;
+}
+
+.task-editor fieldset {
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.task-editor legend {
+  margin-bottom: 8px;
+}
+
+.emoji-select-toggle {
+  width: 100%;
+  height: 52px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--text);
+  padding: 0 14px 0 9px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.emoji-select-toggle.open {
+  border-color: #cfd2ff;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.emoji-select-toggle > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--muted);
+  transition: transform .18s ease;
+}
+
+.emoji-select-toggle.open > svg {
+  color: var(--accent);
+  transform: rotate(180deg);
+}
+
+.selected-emoji {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  display: grid;
+  place-items: center;
+  font-size: 21px;
+  line-height: 1;
+  font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+}
+
+.emoji-loading {
+  height: 110px;
+  margin-top: 9px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #f9fafc;
+  color: var(--muted);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.emoji-catalog {
+  --emoji-picker-height: min(350px, 38dvh);
+  margin-top: 9px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.emoji-catalog aside.EmojiPickerReact {
+  border: 0 !important;
+  --epr-bg-color: #fff;
+  --epr-category-label-bg-color: rgba(255, 255, 255, .94);
+  --epr-hover-bg-color: #f0f1ff;
+  --epr-focus-bg-color: #e7e8ff;
+  --epr-highlight-color: var(--accent);
+  --epr-search-input-bg-color: #f7f8fb;
+  --epr-search-input-border-color: var(--line);
+  --epr-category-icon-active-color: var(--accent);
+  --epr-emoji-size: 25px;
+}
+
+.emoji-catalog .epr-search-container input {
+  padding-left: 42px !important;
+}

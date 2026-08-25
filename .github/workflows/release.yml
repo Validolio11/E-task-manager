@@ -1,10 +1,7 @@
-name: Build and release E-task
+name: Release E-task web
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - main
     tags:
       - "v*"
 
@@ -12,27 +9,23 @@ permissions:
   contents: write
 
 jobs:
-  windows-release:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/v') || contains(github.event.head_commit.message, '[release]')
-    runs-on: windows-latest
+  release:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
-          cache: npm
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Install dependencies
-        run: npm ci
-      - name: Build installer and publish release
-        uses: tauri-apps/tauri-action@v0
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm build
+      - name: Package web build
+        run: zip -r "e-task-web-${GITHUB_REF_NAME}.zip" dist
+      - name: Publish GitHub release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        with:
-          tagName: v__VERSION__
-          releaseName: "E-task v__VERSION__"
-          releaseBody: "Windows installer and signed automatic-update package for E-task v__VERSION__."
-          releaseDraft: false
-          prerelease: false
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "e-task-web-${GITHUB_REF_NAME}.zip" --title "E-task $GITHUB_REF_NAME" --generate-notes

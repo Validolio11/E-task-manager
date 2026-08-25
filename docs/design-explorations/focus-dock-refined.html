@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="design-status" content="selected-app-redesign" />
+  <meta name="design-system" content="Focus Dock Refined / Lucide Icons" />
+  <title>E-task — Focus Dock Refined</title>
+  <style>
+    :root{
+      --bg:#f4f5f7;
+      --surface:#fff;
+      --text:#171923;
+      --muted:#70758a;
+      --line:#dde0e7;
+      --accent:#5b5fef;
+      --accent-soft:#eef0ff;
+      --paused:#b86719;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;width:100%;height:100%;min-height:100dvh;overflow:hidden}
+    body{font-family:Inter,"Segoe UI",sans-serif;background:var(--bg);color:var(--text)}
+    button{font:inherit;cursor:pointer}
+    .li{width:18px;height:18px;stroke-width:1.8;display:block}
+    .screen{width:100%;height:100dvh;min-height:640px;padding:32px 40px;display:flex;flex-direction:column}
+    header{display:flex;align-items:center;gap:12px}
+    header b{font-size:18px;font-weight:700;margin-right:auto}
+    .today{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;padding:8px 12px;border:1px solid var(--line);border-radius:999px;background:var(--surface)}
+    .today .li{width:16px;height:16px}
+    .ai-button{height:40px;border:1px solid #dfe1ff;border-radius:999px;background:var(--accent-soft);color:#4f53dc;padding:0 14px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:750}
+    .ai-button .li{width:18px;height:18px;stroke-width:1.8}
+    .round-button,.icon-button{border:0;display:grid;place-items:center;padding:0}
+    .round-button{width:40px;height:40px;border-radius:50%;background:var(--accent);color:#fff}
+    .icon-button{width:44px;height:44px;border:1px solid var(--text);border-radius:12px;background:transparent;color:var(--text)}
+    .focus{width:min(660px,calc(100% - 80px));margin:auto;text-align:center;transform:translateY(-6px)}
+    .eyebrow{display:inline-flex;align-items:center;gap:10px;background:var(--accent-soft);padding:5px 13px 5px 5px;border-radius:999px}
+    .focus-icon{width:34px;height:34px;border-radius:11px;background:#fff;color:var(--accent);display:grid;place-items:center;box-shadow:0 3px 10px rgba(91,95,239,.1)}
+    .focus-icon .li{width:17px;height:17px}
+    .state{font-size:10px;letter-spacing:.105em;color:var(--accent);font-weight:800}
+    h1{font-size:36px;line-height:1.12;letter-spacing:-.04em;margin:20px 0 7px}
+    .meta{color:var(--muted);font-size:14px;margin:0}
+    .planned{font-size:72px;line-height:.96;font-weight:790;letter-spacing:-.07em;margin:34px 0 10px}
+    .hint{font-size:12px;line-height:1.4;color:var(--muted)}
+    .actions{display:flex;justify-content:center;align-items:center;gap:10px;margin-top:24px}
+    .start{position:relative;width:274px;height:54px;border:0;border-radius:17px;background:linear-gradient(135deg,#666af5 0%,#5156e8 100%);color:#fff;padding:0;display:block;box-shadow:0 11px 26px rgba(81,86,232,.25),inset 0 1px rgba(255,255,255,.22)}
+    .start .li{position:absolute;left:17px;top:50%;transform:translateY(-50%);width:19px;height:19px}
+    .start-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:14px;font-weight:760;letter-spacing:-.01em;white-space:nowrap}
+    .start-duration{position:absolute;right:9px;top:50%;transform:translateY(-50%);min-width:52px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,.14);font-size:11px;font-weight:700;line-height:1;white-space:nowrap}
+    .start:hover{transform:translateY(-1px);box-shadow:0 13px 28px rgba(81,86,232,.3),inset 0 1px rgba(255,255,255,.24)}
+    .start:active{transform:translateY(0);box-shadow:0 6px 16px rgba(81,86,232,.22),inset 0 1px rgba(255,255,255,.18)}
+    .actions .icon-button{width:54px;height:54px;border-color:#cfd3de;border-radius:17px;background:#fff;box-shadow:0 8px 20px rgba(48,52,77,.09)}
+    .dock{align-self:center;width:min(980px,calc(100% - 64px));height:88px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 16px 45px rgba(48,52,77,.12);display:grid;grid-template-columns:1.25fr 1.1fr 1fr 1fr 128px;gap:6px;padding:7px;margin-bottom:0}
+    .task{min-width:0;border:0;background:transparent;text-align:left;border-radius:15px;padding:10px 12px;color:var(--text);display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;align-items:center}
+    .task .li{color:#7c8297}
+    .task b{display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .task small{display:block;color:#858b9d;font-size:11px;margin-top:4px;white-space:nowrap}
+    .task.selected{background:var(--accent-soft)}
+    .task.selected .li,.task.selected small{color:var(--accent)}
+    .task.paused{border:1px solid #e1e3e9}
+    .task.paused .li{color:var(--paused)}
+    .all-tasks{min-width:128px;border:0;background:#f7f8fb;color:var(--text);border-radius:15px;padding:10px 12px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;text-align:left}
+    .all-tasks .li{color:var(--accent)}
+    .all-tasks b{display:block;font-size:12px;white-space:nowrap}
+    .all-tasks small{display:block;color:var(--muted);font-size:10px;margin-top:4px;white-space:nowrap}
+    button:focus-visible{outline:3px solid rgba(91,95,239,.28);outline-offset:2px}
+    @media(max-width:900px){
+      .screen{padding:24px max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
+      .focus{width:min(560px,calc(100% - 24px))}
+      .dock{width:100%;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x proximity;scrollbar-width:none}
+      .dock::-webkit-scrollbar{display:none}
+      .task{flex:0 0 170px}
+      .task,.all-tasks{scroll-snap-align:start}
+      .all-tasks{flex:0 0 132px}
+    }
+    @media(max-width:600px){
+      .screen{padding:20px 16px}
+      .today{display:none}
+      .ai-button{width:40px;padding:0;justify-content:center}
+      .ai-button span{display:none}
+      header .round-button{flex:0 0 40px;margin-left:auto}
+      .focus{transform:none}
+      .eyebrow{gap:8px;padding-right:10px}
+      .state{font-size:9px}
+      h1{font-size:29px;margin-top:17px}
+      .planned{font-size:60px;margin-top:26px}
+      .actions{display:flex;gap:7px;width:100%}
+      .start{width:min(260px,calc(100% - 53px));height:50px;border-radius:15px}
+      .start .li{left:14px}
+      .start-label{font-size:13px}
+      .start-duration{right:7px;min-width:48px;padding:5px 6px;font-size:10px}
+      .actions .icon-button{width:46px;height:50px;border-radius:15px}
+      .dock{height:82px;border-radius:18px;padding:6px}
+    }
+    @media(max-height:760px){
+      .screen{padding-top:22px;padding-bottom:22px}
+      .focus{transform:none}
+      .planned{font-size:60px;margin-top:24px}
+      .actions{margin-top:16px}
+      .dock{height:82px}
+    }
+    @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
+  </style>
+</head>
+<body data-design-status="selected-app-redesign">
+  <main class="screen">
+    <header>
+      <b>E-task</b>
+      <div class="today"><i data-lucide="clock-3" class="li"></i><span>Сьогодні · 1г 38хв</span></div>
+      <button class="ai-button" aria-label="Відкрити AI-помічника"><i data-lucide="brain-circuit" class="li"></i><span>AI-помічник</span></button>
+      <button class="round-button" aria-label="Додати задачу"><i data-lucide="plus" class="li"></i></button>
+    </header>
+
+    <section class="focus" aria-labelledby="task-title">
+      <div class="eyebrow"><div class="focus-icon"><i data-lucide="search" class="li"></i></div><div class="state">ВИБРАНО · ВІДЛІК НЕ РОЗПОЧАТО</div></div>
+      <h1 id="task-title">Зібрати референси</h1>
+      <p class="meta">Дизайн · заплановано 30 хв</p>
+      <div class="planned">30 хв</div>
+      <div class="hint">Вибір задачі не запускає таймер</div>
+      <div class="actions">
+        <button class="start"><i data-lucide="play" class="li"></i><span class="start-label">Почати фокус</span><span class="start-duration">30 хв</span></button>
+        <button class="icon-button" aria-label="Редагувати задачу"><i data-lucide="pencil" class="li"></i></button>
+      </div>
+    </section>
+
+    <nav class="dock" aria-label="Швидкий вибір задачі">
+      <button class="task paused"><i data-lucide="pause" class="li"></i><span><b>Презентація концепту</b><small>На паузі · 38:24</small></span></button>
+      <button class="task selected" aria-current="true"><i data-lucide="search" class="li"></i><span><b>Зібрати референси</b><small>Готова до запуску · 30 хв</small></span></button>
+      <button class="task"><i data-lucide="panels-top-left" class="li"></i><span><b>Оновити структуру</b><small>60 хв</small></span></button>
+      <button class="task"><i data-lucide="scan" class="li"></i><span><b>Адаптивність</b><small>45 хв</small></span></button>
+      <button class="all-tasks" aria-label="Відкрити всі задачі"><i data-lucide="list-todo" class="li"></i><span><b>Усі задачі</b><small>12 доступно</small></span></button>
+    </nav>
+  </main>
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script>window.lucide?.createIcons({attrs:{'aria-hidden':'true'}})</script>
+</body>
+</html>

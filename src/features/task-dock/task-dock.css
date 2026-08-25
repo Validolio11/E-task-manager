@@ -1,0 +1,11 @@
+.dock{align-self:center;width:min(980px,calc(100% - 64px));height:88px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 16px 45px rgba(48,52,77,.12);display:grid;grid-template-columns:1.25fr 1.1fr 1fr 1fr 128px;gap:6px;padding:7px;margin-bottom:0;-webkit-overflow-scrolling:touch}
+.task{min-width:0;border:0;background:transparent;text-align:left;border-radius:15px;padding:10px 12px;color:var(--text);display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;align-items:center}
+.task>svg{width:18px;height:18px;stroke-width:1.8;color:#7c8297}.task>.task-emoji{width:18px;height:18px}
+.task b{display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.task small{display:block;color:#858b9d;font-size:11px;margin-top:4px;white-space:nowrap}
+.task.selected{background:var(--accent-soft)}
+.task.selected>svg,.task.selected small,.task.active>svg,.task.active small{color:var(--accent)}
+.task.paused{border:1px solid #e1e3e9}.task.paused>svg{color:var(--paused)}
+.all-tasks{min-width:128px;border:0;background:#f7f8fb;color:var(--text);border-radius:15px;padding:10px 12px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;text-align:left}
+.all-tasks>svg{width:18px;height:18px;stroke-width:1.8;color:var(--accent)}
+.all-tasks b{display:block;font-size:12px;white-space:nowrap}.all-tasks small{display:block;color:var(--muted);font-size:10px;margin-top:4px;white-space:nowrap}

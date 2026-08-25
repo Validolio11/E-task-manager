@@ -3,14 +3,3 @@ dist/
 .vite/
 *.log
 .DS_Store
-Thumbs.db
-src-tauri/target/
-private/
-src-tauri/icons/*
-!src-tauri/icons/32x32.png
-!src-tauri/icons/128x128.png
-!src-tauri/icons/128x128@2x.png
-!src-tauri/icons/icon.ico
-.env
-.env.*
-!.env.example
