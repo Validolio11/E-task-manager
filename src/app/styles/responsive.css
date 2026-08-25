@@ -1,11 +1,32 @@
-@media(max-width:900px){
-  .screen{padding:24px max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left))}
-  .focus{width:min(560px,calc(100% - 24px))}
-  .dock{--task-card-width:170px;--all-tasks-width:132px;width:max-content;max-width:100%}
+@media (max-width: 900px) {
+  .screen { padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); }
+  .focus { width: min(560px, calc(100% - 24px)); }
+  .dock { --task-card-width: 170px; --all-tasks-width: 132px; width: max-content; max-width: 100%; }
 }
-@media(max-width:600px){
-  .screen{padding:20px 16px}.today{display:none}.ai-button{width:40px;padding:0;justify-content:center}.ai-button span{display:none}.app-header .round-button{flex:0 0 40px;margin-left:0}
-  .focus{transform:none}.focus h1{font-size:29px;margin-top:15px}.planned{font-size:58px;margin-top:25px}.actions{width:min(260px,calc(100% - 53px));margin-top:19px}.start{width:100%;height:50px;border-radius:15px}.start>svg{left:14px}.start-label{font-size:13px}.start-duration{right:7px;min-width:48px;padding:5px 6px;font-size:10px}.icon-button{left:calc(100% + 7px);top:2px;width:46px;height:46px;border-radius:15px}.dock{--dock-pad:6px;height:82px;border-radius:18px}
-  .queue-panel,.ai-panel{width:100%}.dialog-backdrop{align-items:end;padding:0}.dialog{width:100%;max-height:92dvh;border-radius:24px 24px 0 0;padding:22px 18px}.editor-grid{grid-template-columns:1fr 100px}
+@media (max-width: 600px) {
+  .screen { padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
+  .today { display: none; }
+  .ai-button { width: 44px; padding: 0; justify-content: center; }
+  .ai-button span { display: none; }
+  .app-header .round-button { flex-basis: 48px; margin-left: 0; }
+  .focus { width: min(100%, 430px); }
+  .focus h1 { margin-top: var(--space-4); font-size: 30px; }
+  .planned { margin-top: var(--space-6); font-size: 60px; }
+  .actions { width: min(332px, 100%); grid-template-columns: minmax(0, 1fr) 48px; gap: var(--space-2); margin-top: var(--space-4); }
+  .start { height: 52px; }
+  .start-label { font-size: 14px; }
+  .start-duration { min-width: 52px; font-size: 12px; }
+  .icon-button { width: 48px; height: 48px; }
+  .dock { --dock-pad: 8px; height: 84px; border-radius: var(--radius-panel); }
+  .queue-panel, .ai-panel { width: 100%; }
+  .dialog-backdrop { align-items: end; padding: max(12px, env(safe-area-inset-top)) 0 0; }
+  .dialog { width: 100%; max-height: calc(94dvh - env(safe-area-inset-bottom)); padding: var(--space-6) var(--space-4) max(var(--space-6), env(safe-area-inset-bottom)); border-radius: var(--radius-modal) var(--radius-modal) 0 0; }
+  .editor-grid { grid-template-columns: minmax(0, 1fr) 100px; }
+  input, textarea, select { font-size: 16px !important; }
 }
-@media(max-height:760px){.screen{padding-top:22px;padding-bottom:22px}.focus{transform:none}.planned{font-size:60px;margin-top:24px}.actions{margin-top:16px}.dock{height:82px}}
+@media (max-height: 760px) {
+  .screen { padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: max(20px, env(safe-area-inset-bottom)); }
+  .planned { margin-top: var(--space-6); font-size: 60px; }
+  .actions { margin-top: var(--space-4); }
+  .dock { height: 84px; }
+}

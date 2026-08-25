@@ -1,6 +1,14 @@
-.dialog-backdrop{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;background:rgba(23,25,35,.28);backdrop-filter:blur(6px)}
-.dialog{position:relative;width:min(470px,100%);max-height:min(720px,calc(100dvh - 40px));overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable;scrollbar-width:thin;scrollbar-color:#b9bdc8 transparent;-webkit-overflow-scrolling:touch;touch-action:auto;border:1px solid var(--line);border-radius:24px;background:var(--surface);box-shadow:0 28px 90px rgba(31,34,51,.22);padding:26px;outline:0}
-.dialog::-webkit-scrollbar{width:8px}.dialog::-webkit-scrollbar-track{margin-block:20px;background:transparent}.dialog::-webkit-scrollbar-thumb{border:2px solid var(--surface);border-radius:999px;background:#b9bdc8;background-clip:padding-box}
-.dialog-close{position:absolute;right:16px;top:16px;width:38px;height:38px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--muted);display:grid;place-items:center;padding:0}
-.dialog-close svg{width:18px;height:18px}.dialog>header{display:block;padding-right:44px}.dialog h2{margin:0;font-size:24px;letter-spacing:-.03em}.dialog header p{margin:7px 0 0;color:var(--muted);font-size:13px;line-height:1.5}
-.dialog-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:22px}.dialog-actions button{min-height:44px;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--text);padding:0 16px;font-weight:750}.dialog-actions .primary{border-color:var(--accent);background:var(--accent);color:#fff}.dialog-actions .danger{border-color:#d66b63;background:#c74d45;color:#fff}
+.dialog-backdrop { position: fixed; z-index: var(--z-modal); inset: 0; display: grid; place-items: center; padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: var(--overlay-modal); backdrop-filter: blur(6px); }
+.dialog { position: relative; width: min(470px, 100%); max-height: min(720px, calc(100dvh - 40px)); padding: var(--space-6); overflow-x: hidden; overflow-y: auto; border: 1px solid var(--line); border-radius: var(--radius-modal); background: var(--surface); box-shadow: var(--shadow-modal); outline: 0; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; -webkit-overflow-scrolling: touch; touch-action: auto; }
+.dialog::-webkit-scrollbar { width: 8px; }
+.dialog::-webkit-scrollbar-track { margin-block: var(--space-6); background: transparent; }
+.dialog::-webkit-scrollbar-thumb { border: 2px solid var(--surface); border-radius: 999px; background: var(--line-strong); background-clip: padding-box; }
+.dialog-close { position: absolute; right: var(--space-4); top: var(--space-4); width: 44px; height: 44px; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); color: var(--muted); display: grid; place-items: center; }
+.dialog-close svg { width: 18px; height: 18px; }
+.dialog > header { display: block; padding-right: var(--space-12); }
+.dialog h2 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -.03em; text-wrap: balance; }
+.dialog header p { margin: var(--space-2) 0 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-6); }
+.dialog-actions button { min-height: var(--control-md); padding: 0 var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-control); background: var(--surface); color: var(--text); font-weight: 600; white-space: nowrap; }
+.dialog-actions .primary { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
+.dialog-actions .danger { border-color: var(--danger); background: var(--danger); color: var(--on-primary); }

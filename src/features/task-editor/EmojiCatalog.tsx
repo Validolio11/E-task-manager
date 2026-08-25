@@ -18,8 +18,8 @@ const categoryConfig: Array<{ key: CategoryKey; title: string; Icon: ComponentTy
   { key: "flags", title: "Прапори", Icon: Flag },
 ];
 
-const HEADING_HEIGHT = 36;
-const EMOJI_ROW_HEIGHT = 42;
+const HEADING_HEIGHT = 40;
+const EMOJI_ROW_HEIGHT = 48;
 const OVERSCAN = 4;
 
 function unifiedToEmoji(unified: string) {

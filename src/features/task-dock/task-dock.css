@@ -1,17 +1,22 @@
-.dock{--task-card-width:180px;--all-tasks-width:144px;--dock-pad:7px;align-self:center;width:max-content;max-width:min(100%,1088px);height:88px;border:1px solid var(--line);border-radius:22px;background:var(--surface);box-shadow:0 16px 45px rgba(48,52,77,.12);display:flex;gap:6px;padding:var(--dock-pad);margin-bottom:0;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;touch-action:pan-x pinch-zoom;-webkit-overflow-scrolling:touch}
-.dock::-webkit-scrollbar{display:none}
-.dock>.task,.dock>.all-tasks{cursor:grab}
-.dock.dragging,.dock.gliding{scroll-snap-type:none}
-.dock.dragging{cursor:grabbing;user-select:none}
-.dock.dragging>.task,.dock.dragging>.all-tasks{cursor:grabbing}
-.task{flex:0 0 var(--task-card-width);min-width:0;border:0;background:transparent;text-align:left;border-radius:15px;padding:10px 12px;color:var(--text);display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;align-items:center;scroll-snap-align:start}
-.task>svg{width:18px;height:18px;stroke-width:1.8;color:#7c8297}.task>.task-emoji{width:18px;height:18px}
-.task b{display:block;font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.task small{display:block;color:#858b9d;font-size:11px;margin-top:4px;white-space:nowrap}
-.task.selected{background:var(--accent-soft)}
-.task.selected>svg,.task.selected small,.task.active>svg,.task.active small{color:var(--accent)}
-.task.paused{border:1px solid #e1e3e9}.task.paused>svg{color:var(--paused)}
-.all-tasks{position:sticky;left:0;z-index:2;isolation:isolate;flex:0 0 var(--all-tasks-width);min-width:0;border:0;background:#f7f8fb;color:var(--text);border-radius:15px;padding:10px 12px;display:grid;grid-template-columns:22px 1fr;gap:8px;align-items:center;text-align:left;scroll-snap-align:start;box-shadow:10px 0 18px -18px rgba(48,52,77,.55)}
-.all-tasks::before{content:"";position:absolute;z-index:-1;top:calc(-1 * var(--dock-pad));right:0;bottom:calc(-1 * var(--dock-pad));left:calc(-1 * var(--dock-pad));background:var(--surface);pointer-events:none}
-.all-tasks>svg{width:18px;height:18px;stroke-width:1.8;color:var(--accent)}
-.all-tasks b{display:block;font-size:12px;white-space:nowrap}.all-tasks small{display:block;color:var(--muted);font-size:10px;margin-top:4px;white-space:nowrap}
+.dock { --task-card-width: 180px; --all-tasks-width: 144px; --dock-pad: 8px; align-self: center; display: flex; gap: var(--space-1); width: max-content; max-width: min(100%, 1088px); height: 88px; margin-bottom: 0; padding: var(--dock-pad); overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: var(--radius-panel); background: var(--surface); box-shadow: var(--shadow-float); overscroll-behavior-x: contain; scroll-snap-type: x proximity; scrollbar-width: none; touch-action: pan-x pinch-zoom; -webkit-overflow-scrolling: touch; }
+.dock::-webkit-scrollbar { display: none; }
+.dock > .task, .dock > .all-tasks { cursor: grab; }
+.dock.dragging, .dock.gliding { scroll-snap-type: none; }
+.dock.dragging { cursor: grabbing; user-select: none; }
+.dock.dragging > .task, .dock.dragging > .all-tasks { cursor: grabbing; }
+.task, .all-tasks { min-width: 0; padding: var(--space-3); border: 0; border-radius: var(--radius-control); color: var(--text); text-align: left; display: grid; align-items: center; }
+.task { flex: 0 0 var(--task-card-width); grid-template-columns: 24px minmax(0, 1fr); gap: var(--space-2); background: transparent; scroll-snap-align: start; }
+.task > svg, .task > .task-emoji { width: 18px; height: 18px; }
+.task > svg { color: var(--muted); stroke-width: 1.8; }
+.task b, .all-tasks b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task small, .all-tasks small { display: block; margin-top: var(--space-1); color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task.selected { background: var(--selected-surface); }
+.task.selected > svg, .task.selected small { color: var(--accent); }
+.task.active { background: var(--running-surface); }
+.task.active > svg, .task.active small { color: var(--running); }
+.task.paused { background: var(--paused-surface); }
+.task.paused > svg, .task.paused small { color: var(--paused); }
+.all-tasks { position: sticky; left: 0; z-index: 2; isolation: isolate; flex: 0 0 var(--all-tasks-width); grid-template-columns: 22px minmax(0, 1fr); gap: var(--space-2); background: var(--surface-subtle); scroll-snap-align: start; box-shadow: 8px 0 16px -18px rgba(31, 34, 51, .55); }
+.all-tasks::before { content: ""; position: absolute; z-index: -1; inset: calc(-1 * var(--dock-pad)) 0 calc(-1 * var(--dock-pad)) calc(-1 * var(--dock-pad)); background: var(--surface); pointer-events: none; }
+.all-tasks > svg { width: 18px; height: 18px; color: var(--accent); stroke-width: 1.8; }
+@media (hover: hover) and (pointer: fine) { .task:hover, .all-tasks:hover { background: var(--accent-soft); } }

@@ -29,7 +29,7 @@ export function FocusDock({ task, onEdit, onAdd }: Props) {
   const isRunning = isActive && state.activeSession?.status === "running";
   const isPaused = isActive && state.activeSession?.status === "paused";
   const elapsed = trackedMs(state, task.id, now);
-  const stateText = isRunning ? "У ФОКУСІ" : isPaused ? "НА ПАУЗІ" : "ВИБРАНО · ВІДЛІК НЕ РОЗПОЧАТО";
+  const stateText = isRunning ? "У ФОКУСІ" : isPaused ? "НА ПАУЗІ" : "ГОТОВА ДО ФОКУСУ";
   const value = isActive ? formatTimer(elapsed) : `${task.plannedMinutes} хв`;
   const hint = isRunning
     ? `Ціль ${task.plannedMinutes} хв · відлік триває`
@@ -42,7 +42,7 @@ export function FocusDock({ task, onEdit, onAdd }: Props) {
   return <section className="focus" aria-labelledby="task-title">
     <div className={`eyebrow ${isRunning ? "running" : ""} ${isPaused ? "paused" : ""}`}><div className="focus-icon"><TaskIcon icon={task.icon} emoji={task.emoji} size={19}/></div><div className="state-label">{stateText}</div></div>
     <h1 id="task-title">{task.title}</h1>
-    <p className="meta">{task.project || "Без проєкту"} · {isActive ? `заплановано ${task.plannedMinutes} хв` : `заплановано ${task.plannedMinutes} хв`}</p>
+    <p className="meta">{task.project || "Без проєкту"} · заплановано {task.plannedMinutes} хв</p>
     <div className="planned" aria-live="off">{value}</div>
     <div className="hint">{hint}</div>
     <div className="actions">

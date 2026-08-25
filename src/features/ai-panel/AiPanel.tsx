@@ -28,6 +28,7 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     composerRef.current?.focus();
     const keepFocusInside = (event: FocusEvent) => {
+      if (document.querySelector(".ai-settings-dialog")) return;
       if (event.target instanceof Node && panelRef.current && !panelRef.current.contains(event.target)) composerRef.current?.focus();
     };
     document.addEventListener("focusin", keepFocusInside);
@@ -43,7 +44,7 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
       closePanel();
       return;
     }
-    if (event.key !== "Tab") return;
+    if (event.key !== "Tab" || settingsOpen) return;
     const focusable = [...(panelRef.current?.querySelectorAll<HTMLElement>('button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])') ?? [])]
       .filter((element) => !element.hidden && element.getClientRects().length > 0);
     if (!focusable.length) return;
@@ -85,14 +86,14 @@ export function AiPanel({ onClose }: { onClose: () => void }) {
     }
   };
   return <aside ref={panelRef} className="ai-panel" role="dialog" aria-modal="true" aria-label="AI-помічник" onKeyDown={handlePanelKeyDown}>
-    <header><span><BrainCircuit/></span><div className="ai-header-copy"><strong>AI-помічник</strong><small>{settings.mode === "api" ? `API · ${settings.model || "без моделі"} · задачі ${settings.shareTaskContext ? "дозволені" : "приховані"}` : "Локальний режим"} · без зміни задач</small></div><div className="ai-header-actions"><button type="button" onClick={() => setSettingsOpen(true)} aria-label="Налаштування AI"><Settings/></button><button type="button" onClick={closePanel} aria-label="Закрити AI-помічник"><X/></button></div></header>
-    <div className="ai-messages" ref={scrollRef}>
+    <header inert={settingsOpen ? true : undefined}><span><BrainCircuit/></span><div className="ai-header-copy"><strong>AI-помічник</strong><small>{settings.mode === "api" ? `API · ${settings.model || "без моделі"} · задачі ${settings.shareTaskContext ? "дозволені" : "приховані"}` : "Локальний режим"} · без зміни задач</small></div><div className="ai-header-actions"><button type="button" onClick={() => setSettingsOpen(true)} aria-label="Налаштування AI"><Settings/></button><button type="button" onClick={closePanel} aria-label="Закрити AI-помічник"><X/></button></div></header>
+    <div className="ai-messages" ref={scrollRef} role="log" aria-live="polite" inert={settingsOpen ? true : undefined}>
       {!safeMessages.length && <div className="ai-welcome"><span><Sparkles/></span><h2>Що розібрати?</h2><p>Постав запитання про поточний фокус або попроси допомогти визначити наступний крок.</p><button type="button" onClick={() => setValue("Що варто зробити наступним?")}>Запропонуй наступний крок</button></div>}
       {safeMessages.map((message, index) => <article className={message.role} key={message.id || `${message.role}-${index}`}><span>{message.role === "assistant" ? <BrainCircuit/> : "Ви"}</span><p>{message.content.slice(0, AI_LIMITS.responseCharacters)}</p></article>)}
-      {thinking && <article className="assistant thinking"><span><BrainCircuit/></span><p>Аналізую поточну чергу…</p></article>}
+      {thinking && <article className="assistant thinking" role="status"><span><BrainCircuit/></span><p>Аналізую поточну чергу…</p></article>}
     </div>
-    {error && <div className="ai-request-error" role="alert"><span>{error}</span><button type="button" onClick={() => setSettingsOpen(true)}>Налаштування</button></div>}
-    <form className="ai-composer" onSubmit={submit}><textarea ref={composerRef} rows={2} maxLength={AI_LIMITS.inputCharacters} value={value} onChange={(event) => setValue(event.target.value)} placeholder="Наприклад: що зробити наступним?" aria-label="Повідомлення AI"/><button type="submit" aria-label="Надіслати" disabled={!value.trim() || thinking}><Send/></button></form>
+    {error && <div className="ai-request-error" role="alert" inert={settingsOpen ? true : undefined}><span>{error}</span><button type="button" onClick={() => setSettingsOpen(true)}>Налаштування</button></div>}
+    <form className="ai-composer" onSubmit={submit} inert={settingsOpen ? true : undefined}><textarea ref={composerRef} rows={2} maxLength={AI_LIMITS.inputCharacters} value={value} onChange={(event) => setValue(event.target.value)} placeholder="Наприклад: що зробити наступним?" aria-label="Повідомлення AI"/><button type="submit" aria-label="Надіслати" disabled={!value.trim() || thinking}><Send/></button></form>
     {settingsOpen && <AiSettingsDialog
       initial={settings}
       onClose={() => setSettingsOpen(false)}

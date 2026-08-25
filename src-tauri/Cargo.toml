@@ -1,6 +1,6 @@
 [package]
 name = "e-task"
-version = "0.3.3"
+version = "0.3.4"
 description = "Minimal focus-first task manager"
 authors = ["Validolio11"]
 license = "MIT"
@@ -15,10 +15,10 @@ name = "e_task_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "=2.6.3" }
+tauri-build = { version = "=2.6.3", features = [] }
 
 [dependencies]
-tauri = { version = "=2.11.5" }
+tauri = { version = "=2.11.5", features = [] }
 reqwest = { version = "=0.12.28", default-features = false, features = ["json", "rustls-tls", "stream"] }
 serde = { version = "=1.0.229", features = ["derive"] }
 serde_json = "=1.0.151"
