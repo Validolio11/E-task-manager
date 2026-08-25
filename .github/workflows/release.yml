@@ -1,16 +1,20 @@
-name: Release E-task web
+name: Release E-task
 
 on:
   push:
     tags:
       - "v*"
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v6
@@ -20,12 +24,36 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
-      - run: pnpm build
+      - name: Verify release versions
+        shell: pwsh
+        run: |
+          $tagVersion = $env:GITHUB_REF_NAME.TrimStart('v')
+          $packageVersion = (Get-Content package.json | ConvertFrom-Json).version
+          $tauriVersion = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          $cargoVersion = (Select-String -Path src-tauri/Cargo.toml -Pattern '^version = "([^"]+)"').Matches[0].Groups[1].Value
+          if ($tagVersion -ne $packageVersion -or $tagVersion -ne $tauriVersion -or $tagVersion -ne $cargoVersion) {
+            throw "Version mismatch: tag=$tagVersion package=$packageVersion tauri=$tauriVersion cargo=$cargoVersion"
+          }
+      - run: pnpm desktop:build
       - name: Package web build
-        run: zip -r "e-task-web-${GITHUB_REF_NAME}.zip" dist
+        shell: pwsh
+        run: Compress-Archive -Path dist\* -DestinationPath "e-task-web-$env:GITHUB_REF_NAME.zip"
       - name: Publish GitHub release
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" "e-task-web-${GITHUB_REF_NAME}.zip" --title "E-task $GITHUB_REF_NAME" --generate-notes
+        run: |
+          $installer = Get-ChildItem "src-tauri\target\release\bundle\nsis\*-setup.exe" | Select-Object -First 1
+          if (-not $installer) { throw "NSIS installer was not produced" }
+          $webBuild = Get-Item "e-task-web-$env:GITHUB_REF_NAME.zip"
+          @(
+            "$((Get-FileHash $installer.FullName -Algorithm SHA256).Hash.ToLower())  $($installer.Name)"
+            "$((Get-FileHash $webBuild.FullName -Algorithm SHA256).Hash.ToLower())  $($webBuild.Name)"
+          ) | Set-Content SHA256SUMS.txt
+          gh release create $env:GITHUB_REF_NAME $installer.FullName $webBuild.FullName SHA256SUMS.txt --verify-tag --title "E-task $env:GITHUB_REF_NAME" --notes "Windows installer and web build. The installer is currently unsigned, so Windows SmartScreen may show an unknown publisher warning."

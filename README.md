@@ -1,4 +1,4 @@
-# E-task 0.3
+# E-task 0.3.1
 
 Minimal focus-first task manager rebuilt in React from the approved Focus Dock design.
 
@@ -21,3 +21,19 @@ pnpm dev
 pnpm test
 pnpm build
 ```
+
+## Windows app
+
+Run the desktop app in development mode:
+
+```bash
+pnpm desktop:dev
+```
+
+Create the Windows NSIS installer:
+
+```bash
+pnpm desktop:build
+```
+
+The installer is written to `src-tauri/target/release/bundle/nsis/`.
