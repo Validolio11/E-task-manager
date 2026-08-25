@@ -13,6 +13,11 @@ const MAX_URL_LENGTH = 2_048;
 const MAX_MODEL_LENGTH = 160;
 const MAX_API_KEY_LENGTH = 8_192;
 
+export const GEMINI_OPENAI_PRESET = {
+  baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+  model: "gemini-3.7-flash",
+} as const;
+
 export const DEFAULT_AI_SETTINGS: AiSettings = {
   mode: "local",
   baseUrl: "https://api.openai.com/v1",
@@ -25,6 +30,10 @@ export const DEFAULT_AI_SETTINGS: AiSettings = {
 export function isLoopbackHostname(hostname: string) {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   return host === "localhost" || host.endsWith(".localhost") || host === "::1" || host === "0:0:0:0:0:0:0:1" || /^127(?:\.\d{1,3}){0,3}$/.test(host);
+}
+
+export function isGeminiHostname(hostname: string) {
+  return hostname.toLowerCase() === "generativelanguage.googleapis.com";
 }
 
 function ipv4Octets(host: string) {
@@ -115,7 +124,9 @@ export function prepareAiSettings(settings: AiSettings): AiSettings {
   if (!model) throw new Error("Вкажіть назву моделі.");
   if (model.length > MAX_MODEL_LENGTH || /[\r\n\0]/.test(model)) throw new Error("Назва моделі надто довга або містить недопустимі символи.");
   if (apiKey.length > MAX_API_KEY_LENGTH || /[\r\n\0]/.test(apiKey)) throw new Error("API-ключ надто довгий або має недопустимий формат.");
-  if (url.hostname === "api.openai.com" && !apiKey) throw new Error("Для OpenAI потрібно додати API-ключ.");
+  if ((url.hostname === "api.openai.com" || isGeminiHostname(url.hostname)) && !apiKey) {
+    throw new Error(isGeminiHostname(url.hostname) ? "Для Google Gemini потрібно додати API-ключ." : "Для OpenAI потрібно додати API-ключ.");
+  }
   return {
     ...settings,
     baseUrl: url.toString().replace(/\/$/, ""),

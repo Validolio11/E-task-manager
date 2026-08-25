@@ -1,4 +1,4 @@
-# E-task 0.3.2
+# E-task 0.3.3
 
 Minimal focus-first task manager rebuilt in React from the approved Focus Dock design.
 
@@ -8,10 +8,10 @@ Minimal focus-first task manager rebuilt in React from the approved Focus Dock d
 - explicit focus start, pause, resume, and completion;
 - task creation, editing, deletion, and full emoji picker;
 - compact task dock, complete task list, and local AI assistant;
-- optional OpenAI-compatible API connection with configurable endpoint, model, and key;
+- optional OpenAI-compatible API connection with a Google Gemini preset, connection check, and configurable endpoint, model, and key;
 - touch-friendly responsive layout and local browser persistence.
 
-The installed Windows app sends configured AI requests through its native layer. Direct AI requests from the browser preview require the API provider to allow CORS. API keys are never logged; when key persistence is enabled, the key is stored locally in the app data on that device.
+The installed Windows app sends configured AI requests through its native layer. Direct AI requests from the browser preview require the API provider to allow CORS. API keys are never logged or written to browser storage and must be entered again after restarting the app.
 
 ## Development
 

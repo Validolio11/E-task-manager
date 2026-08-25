@@ -1,6 +1,6 @@
 [package]
 name = "e-task"
-version = "0.3.2"
+version = "0.3.3"
 description = "Minimal focus-first task manager"
 authors = ["Validolio11"]
 license = "MIT"

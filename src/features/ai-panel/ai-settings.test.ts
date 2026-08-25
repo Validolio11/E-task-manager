@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_AI_SETTINGS, loadAiSettings, prepareAiSettings, saveAiSettings, validateAiEndpoint, type AiSettings } from "./ai-settings";
+import { DEFAULT_AI_SETTINGS, GEMINI_OPENAI_PRESET, loadAiSettings, prepareAiSettings, saveAiSettings, validateAiEndpoint, type AiSettings } from "./ai-settings";
 
 const memory = new Map<string, string>();
 const localStorageMock = {
@@ -49,5 +49,14 @@ describe("AI settings security", () => {
 
   it("normalizes settings and disables key persistence", () => {
     expect(prepareAiSettings(apiSettings)).toMatchObject({ baseUrl: "https://api.openai.com/v1", model: "model", apiKey: "secret", rememberKey: false });
+  });
+
+  it("provides a working Gemini preset and requires its API key", () => {
+    expect(GEMINI_OPENAI_PRESET).toEqual({
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      model: "gemini-3.7-flash",
+    });
+    expect(() => prepareAiSettings({ ...apiSettings, ...GEMINI_OPENAI_PRESET, apiKey: "" })).toThrow("Google Gemini потрібно додати API-ключ");
+    expect(prepareAiSettings({ ...apiSettings, ...GEMINI_OPENAI_PRESET })).toMatchObject(GEMINI_OPENAI_PRESET);
   });
 });
