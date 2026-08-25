@@ -1,7 +1,7 @@
 .focus{width:min(660px,calc(100% - 80px));margin:auto;text-align:center;transform:translateY(-6px)}
-.eyebrow{display:inline-flex;align-items:center;gap:10px;background:var(--accent-soft);padding:5px 13px 5px 5px;border-radius:999px}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;background:var(--accent-soft);padding:5px 13px 5px 5px;border-radius:22px}
 .eyebrow.paused{background:#fff3e8}.eyebrow.paused .state-label{color:var(--paused)}
-.focus-icon{width:34px;height:34px;border-radius:11px;background:#fff;color:var(--accent);display:grid;place-items:center;box-shadow:0 3px 10px rgba(91,95,239,.1)}
+.focus-icon{width:34px;height:34px;border-radius:17px;background:#fff;color:var(--accent);display:grid;place-items:center;box-shadow:0 3px 10px rgba(91,95,239,.1)}
 .focus-icon svg{width:17px;height:17px;stroke-width:1.8}.focus-icon .task-emoji{width:22px;height:22px}
 .state-label{font-size:10px;letter-spacing:.105em;color:var(--accent);font-weight:800}
 .focus h1{font-size:36px;line-height:1.12;letter-spacing:-.04em;margin:20px 0 7px;overflow-wrap:anywhere}
